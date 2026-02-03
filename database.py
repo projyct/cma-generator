@@ -325,24 +325,14 @@ class Database:
 
         cursor.execute("""
             INSERT INTO rent_history (
-                property_id, market_rent, actual_rent, status, tenant_name,
-                lease_from, lease_to, move_in, move_out, deposit,
-                past_due, nsf_count, late_count
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                property_id, market_rent, actual_rent, status, occupancy_type
+            ) VALUES (?, ?, ?, ?, ?)
         """, (
             property_id,
             rent_data.get('market_rent'),
             rent_data.get('actual_rent'),
             rent_data.get('status'),
-            rent_data.get('tenant_name'),
-            rent_data.get('lease_from'),
-            rent_data.get('lease_to'),
-            rent_data.get('move_in'),
-            rent_data.get('move_out'),
-            rent_data.get('deposit'),
-            rent_data.get('past_due'),
-            rent_data.get('nsf_count'),
-            rent_data.get('late_count')
+            rent_data.get('occupancy_type')
         ))
 
         conn.commit()
@@ -423,9 +413,7 @@ class Database:
                     rh.market_rent,
                     rh.actual_rent,
                     rh.status,
-                    rh.tenant_name,
-                    rh.lease_from,
-                    rh.lease_to,
+                    rh.occupancy_type,
                     rh.upload_date,
                     (3959 * acos(
                         cos(radians(?)) * cos(radians(p.latitude)) *
@@ -434,8 +422,8 @@ class Database:
                     )) AS distance_miles
                 FROM properties p
                 LEFT JOIN (
-                    SELECT property_id, market_rent, actual_rent, status, tenant_name,
-                           lease_from, lease_to, upload_date,
+                    SELECT property_id, market_rent, actual_rent, status, occupancy_type,
+                           upload_date,
                            ROW_NUMBER() OVER (PARTITION BY property_id ORDER BY upload_date DESC) as rn
                     FROM rent_history
                 ) rh ON p.id = rh.property_id AND rh.rn = 1
@@ -535,11 +523,11 @@ class Database:
                 rh.market_rent,
                 rh.actual_rent,
                 rh.status,
-                rh.tenant_name,
+                rh.occupancy_type,
                 rh.upload_date
             FROM properties p
             LEFT JOIN (
-                SELECT property_id, market_rent, actual_rent, status, tenant_name, upload_date,
+                SELECT property_id, market_rent, actual_rent, status, occupancy_type, upload_date,
                        ROW_NUMBER() OVER (PARTITION BY property_id ORDER BY upload_date DESC) as rn
                 FROM rent_history
             ) rh ON p.id = rh.property_id AND rh.rn = 1
