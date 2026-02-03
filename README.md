@@ -2,6 +2,12 @@
 
 A comprehensive tool for generating Comparative Market Analysis (CMA) reports based on AppFolio rent roll exports and market comparables.
 
+## 🚀 Live Demo
+
+**Try it now:** https://cma-generator-k2szbvxthefhkrggxvjblh.streamlit.app/
+
+Pre-loaded with 4,738 demo properties (PII removed) for immediate CMA generation. Mobile-optimized and ready to use!
+
 ## Features
 
 - 📤 **Import AppFolio Rent Roll** - Automatically parse CSV exports

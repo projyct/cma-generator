@@ -1,5 +1,26 @@
 # CMA Generator - Deployment Guide
 
+## 🚀 Currently Deployed
+
+**Live Demo:** https://cma-generator-k2szbvxthefhkrggxvjblh.streamlit.app/
+
+**Deployment Details:**
+- **Platform:** Streamlit Community Cloud (Free Tier)
+- **Repository:** https://github.com/projyct/cma-generator
+- **Branch:** main
+- **Account:** projyct
+- **Status:** ✅ Active
+- **Deployed:** February 3, 2026
+- **Last Updated:** Auto-deploys on push to main branch
+
+**Features:**
+- Pre-loaded with 4,738 demo properties (PII removed)
+- Geocoded addresses ready for immediate CMA generation
+- Mobile-optimized UI (responsive design)
+- No authentication required (public demo)
+
+---
+
 ## Repository Cleaned for Deployment ✅
 
 The repository has been cleaned and is now ready for deployment to Streamlit Cloud or other hosting platforms.
@@ -88,11 +109,23 @@ Currently, the app works without any environment variables.
 
 ## Database Persistence
 
-**Important:** Streamlit Cloud uses ephemeral storage. The SQLite database will be reset on app restart.
+### Current Approach: Pre-loaded Database ✅
 
-### Solutions:
+**The deployed demo includes a pre-populated database in the repository:**
+- 4,738 properties with geocoded coordinates
+- 4,771 rent records (PII removed)
+- Database file: `data/cma_generator.db` (3.4MB)
+- Included in Git repository for immediate demo functionality
 
-**Option 1: External Database (Recommended for production)**
+**Why this approach:**
+- Streamlit Cloud has ephemeral storage (resets on restart)
+- Geocoding 4,700 addresses takes ~3 minutes (too slow for demo)
+- Pre-populated database allows instant CMA generation
+- No PII stored (safe for public repository)
+
+**For production deployments:**
+
+**Option 1: External Database (Recommended)**
 - Use PostgreSQL, MySQL, or cloud database
 - Modify `database.py` to connect to external DB
 - Store connection string in secrets
@@ -105,7 +138,7 @@ Currently, the app works without any environment variables.
 - Users re-upload rent roll each session
 - Good for testing/demo purposes
 
-For now, the app is configured with SQLite for simplicity. Users can upload their rent roll each time they use the app.
+The current demo works with the pre-loaded database. Users can also upload their own rent rolls which will be temporarily added to the database until the next restart.
 
 ## Application Features
 
@@ -119,10 +152,19 @@ For now, the app is configured with SQLite for simplicity. Users can upload thei
 ✅ Manual address entry for CMA generation
 
 ### Performance:
-- First import: ~3 minutes for 4700 properties (geocoding rate-limited)
-- Re-import: ~10 seconds (skips already-geocoded properties)
-- CMA generation: < 1 second
-- Report export: 2-5 seconds
+- **Demo:** Instant CMA generation (pre-loaded data)
+- **New rent roll import:** ~3 minutes for 4700 properties (geocoding rate-limited)
+- **Re-import:** ~10 seconds (skips already-geocoded properties)
+- **CMA generation:** < 1 second
+- **Report export:** 2-5 seconds
+
+### Mobile Optimization:
+✅ Responsive layout (centered, not wide)
+✅ Collapsed sidebar (hamburger menu on mobile)
+✅ Touch-friendly buttons (44px minimum)
+✅ Mobile-optimized input fields (prevents auto-zoom)
+✅ Horizontal scrolling for tables when needed
+✅ Optimized column widths
 
 ## Resource Requirements
 
