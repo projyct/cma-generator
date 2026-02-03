@@ -94,6 +94,48 @@ class Database:
             ON rent_history(property_id, upload_date DESC)
         """)
 
+        # External comparables table - stores RentCast and other external data
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS external_comps (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                address TEXT NOT NULL,
+                city TEXT,
+                state TEXT,
+                zip_code TEXT,
+                latitude REAL,
+                longitude REAL,
+                bedrooms REAL,
+                bathrooms REAL,
+                sqft INTEGER,
+                rent_price REAL,
+                property_type TEXT,
+                year_built INTEGER,
+                source TEXT NOT NULL,
+                source_id TEXT,
+                correlation_score REAL,
+                retrieved_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                listing_status TEXT,
+                days_on_market INTEGER,
+                UNIQUE(source, source_id)
+            )
+        """)
+
+        # Create indexes for external_comps
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_external_comps_location
+            ON external_comps(latitude, longitude)
+        """)
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_external_comps_source
+            ON external_comps(source, retrieved_date DESC)
+        """)
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_external_comps_specs
+            ON external_comps(bedrooms, bathrooms, sqft)
+        """)
+
         # Saved CMAs table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS saved_cmas (
@@ -697,3 +739,166 @@ class Database:
         conn.close()
 
         return [dict(row) for row in rows]
+
+    def save_external_comps(self, comps: List[Dict], source: str = 'RentCast') -> int:
+        """
+        Save external comparable properties to database
+
+        Args:
+            comps: List of comparable property dictionaries
+            source: Data source name (e.g., 'RentCast', 'Zillow')
+
+        Returns:
+            Number of comps saved (excluding duplicates)
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        saved_count = 0
+        for comp in comps:
+            try:
+                cursor.execute("""
+                    INSERT OR REPLACE INTO external_comps (
+                        address, city, state, zip_code,
+                        latitude, longitude,
+                        bedrooms, bathrooms, sqft,
+                        rent_price, property_type, year_built,
+                        source, source_id, correlation_score,
+                        listing_status, days_on_market
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    comp.get('address'),
+                    comp.get('city'),
+                    comp.get('state'),
+                    comp.get('zip_code'),
+                    comp.get('latitude'),
+                    comp.get('longitude'),
+                    comp.get('bedrooms'),
+                    comp.get('bathrooms'),
+                    comp.get('sqft'),
+                    comp.get('rent_price') or comp.get('price'),
+                    comp.get('property_type') or comp.get('propertyType'),
+                    comp.get('year_built') or comp.get('yearBuilt'),
+                    source,
+                    comp.get('source_id') or comp.get('id') or comp.get('address'),
+                    comp.get('correlation_score') or comp.get('correlation'),
+                    comp.get('listing_status') or comp.get('listingStatus'),
+                    comp.get('days_on_market') or comp.get('daysOnMarket')
+                ))
+                saved_count += 1
+            except Exception as e:
+                print(f"Error saving comp {comp.get('address')}: {e}")
+                continue
+
+        conn.commit()
+        conn.close()
+
+        return saved_count
+
+    def find_external_comps(self,
+                           center_lat: float,
+                           center_lon: float,
+                           radius_miles: float,
+                           filters: Dict = None,
+                           max_age_days: int = 30,
+                           source: str = None) -> List[Dict]:
+        """
+        Find cached external comparable properties within radius
+
+        Args:
+            center_lat: Center point latitude
+            center_lon: Center point longitude
+            radius_miles: Search radius in miles
+            filters: Optional filters (bedrooms, bathrooms, sqft_min, sqft_max)
+            max_age_days: Maximum age of cached data in days
+            source: Filter by specific source (e.g., 'RentCast')
+
+        Returns:
+            List of comparable properties with distance_miles
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        query = """
+            SELECT * FROM (
+                SELECT
+                    *,
+                    (3959 * acos(
+                        cos(radians(?)) * cos(radians(latitude)) *
+                        cos(radians(longitude) - radians(?)) +
+                        sin(radians(?)) * sin(radians(latitude))
+                    )) AS distance_miles,
+                    (julianday('now') - julianday(retrieved_date)) AS age_days
+                FROM external_comps
+                WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+            ) AS subquery
+            WHERE distance_miles <= ?
+            AND age_days <= ?
+        """
+
+        params = [center_lat, center_lon, center_lat, radius_miles, max_age_days]
+
+        if source:
+            query += " AND source = ?"
+            params.append(source)
+
+        if filters:
+            if filters.get('bedrooms'):
+                query += " AND bedrooms = ?"
+                params.append(filters['bedrooms'])
+            if filters.get('bathrooms'):
+                query += " AND bathrooms = ?"
+                params.append(filters['bathrooms'])
+            if filters.get('sqft_min'):
+                query += " AND sqft >= ?"
+                params.append(filters['sqft_min'])
+            if filters.get('sqft_max'):
+                query += " AND sqft <= ?"
+                params.append(filters['sqft_max'])
+
+        query += " ORDER BY distance_miles, correlation_score DESC"
+
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        conn.close()
+
+        return [dict(row) for row in rows]
+
+    def get_external_comps_stats(self, source: str = None) -> Dict:
+        """
+        Get statistics about cached external comparables
+
+        Args:
+            source: Optional filter by source
+
+        Returns:
+            Dictionary with count, oldest_date, newest_date, avg_age_days
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        query = """
+            SELECT
+                COUNT(*) as total_count,
+                MIN(retrieved_date) as oldest_date,
+                MAX(retrieved_date) as newest_date,
+                AVG(julianday('now') - julianday(retrieved_date)) as avg_age_days,
+                source
+            FROM external_comps
+        """
+
+        if source:
+            query += " WHERE source = ?"
+            cursor.execute(query, (source,))
+        else:
+            query += " GROUP BY source"
+            cursor.execute(query)
+
+        rows = cursor.fetchall()
+        conn.close()
+
+        if source:
+            row = rows[0] if rows else None
+            return dict(row) if row else {}
+        else:
+            return [dict(row) for row in rows]

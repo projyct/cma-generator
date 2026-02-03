@@ -13,7 +13,7 @@ from database import Database
 from parsers import RentRollParser
 from geocoder import Geocoder, CensusGeocoder, calculate_distance_miles
 from reports import CMAReportGenerator
-from zillow_scraper import ZillowScraper
+from rentcast_client import RentCastClient
 from address_cleaner import AddressCleaner
 
 # Page configuration
