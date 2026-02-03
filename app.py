@@ -20,9 +20,60 @@ from address_cleaner import AddressCleaner
 st.set_page_config(
     page_title="CMA Generator",
     page_icon="🏠",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="centered",
+    initial_sidebar_state="collapsed"
 )
+
+# Mobile-optimized CSS
+st.markdown("""
+<style>
+    /* Mobile-friendly improvements */
+    @media (max-width: 768px) {
+        /* Increase touch target sizes */
+        .stButton button {
+            min-height: 44px;
+            padding: 12px 24px;
+            font-size: 16px;
+        }
+
+        /* Better spacing for mobile */
+        .block-container {
+            padding-top: 1rem;
+            padding-bottom: 3rem;
+        }
+
+        /* Truncate long addresses in tables */
+        .stDataFrame td {
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Stack metrics vertically on mobile */
+        [data-testid="stMetricValue"] {
+            font-size: 1.5rem;
+        }
+
+        /* Improve input field sizes */
+        .stTextInput input, .stSelectbox select, .stNumberInput input {
+            font-size: 16px;
+            min-height: 44px;
+        }
+
+        /* Better table scrolling */
+        .stDataFrame {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+    }
+
+    /* Always apply better spacing */
+    .stButton button {
+        min-height: 40px;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # Initialize cached resources
 @st.cache_resource
@@ -801,12 +852,45 @@ if page == "🔍 Generate CMA":
         edited_df = st.data_editor(
             comp_df[['Select', 'Address', 'Beds', 'Baths', 'Sqft', 'Rent', 'Source', 'Status', 'Distance']],
             hide_index=True,
-            width='stretch',
+            use_container_width=True,
             column_config={
                 "Select": st.column_config.CheckboxColumn(
-                    "Include",
+                    "✓",
                     help="Select to include in CMA",
-                    default=False
+                    default=False,
+                    width="small"
+                ),
+                "Address": st.column_config.TextColumn(
+                    "Address",
+                    width="medium"
+                ),
+                "Beds": st.column_config.NumberColumn(
+                    "Beds",
+                    width="small"
+                ),
+                "Baths": st.column_config.NumberColumn(
+                    "Baths",
+                    width="small"
+                ),
+                "Sqft": st.column_config.NumberColumn(
+                    "Sqft",
+                    width="small"
+                ),
+                "Rent": st.column_config.TextColumn(
+                    "Rent",
+                    width="small"
+                ),
+                "Source": st.column_config.TextColumn(
+                    "Source",
+                    width="small"
+                ),
+                "Status": st.column_config.TextColumn(
+                    "Status",
+                    width="small"
+                ),
+                "Distance": st.column_config.TextColumn(
+                    "Dist",
+                    width="small"
                 )
             }
         )
