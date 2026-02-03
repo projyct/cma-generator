@@ -1,0 +1,46 @@
+# Environment
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.pyc
+
+# Virtual environments
+venv/
+venv_windows/
+ENV/
+
+# IDEs
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Application data (user data, should not be in git)
+# Exclude temp uploads and backups
+data/temp_*.csv
+data/*.backup
+data/*.db.backup*
+exports/
+
+# INCLUDE clean demo database (PII removed - safe for public)
+!data/cma_generator.db
+
+# Streamlit
+.streamlit/
+
+# Build artifacts
+build/
+dist/
+*.spec
+*.egg-info/
+
+# Temporary files
+*.tmp
+temp_*
+.DS_Store
