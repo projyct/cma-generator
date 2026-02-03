@@ -83,13 +83,21 @@ The following files were removed as they're not needed for deployment:
    - Main file path: `app.py`
    - Click "Deploy"
 
-3. **Configure Secrets (if needed):**
+3. **Configure Secrets (Recommended for RentCast):**
    - Go to App settings > Secrets
-   - Add any environment variables (e.g., API keys)
-   - Format:
+   - Add environment variables for external data:
      ```toml
+     # Optional: For Nominatim geocoding compliance
      GEOCODING_EMAIL = "your_email@example.com"
+
+     # Recommended: For RentCast market comparables
+     RENTCAST_API_KEY = "your_rentcast_api_key_here"
      ```
+   - **Get your free RentCast API key:**
+     1. Sign up at https://app.rentcast.io/
+     2. Go to https://app.rentcast.io/app/api
+     3. Copy your API key
+     4. Free tier: 50 requests/month (each returns up to 25 comps)
 
 4. **Wait for deployment** (2-5 minutes)
 
@@ -98,14 +106,21 @@ The following files were removed as they're not needed for deployment:
 
 ## Environment Variables
 
-Optional environment variables you can configure in Streamlit Cloud:
+### Optional Configuration
 
 ```toml
 # .streamlit/secrets.toml (on Streamlit Cloud)
+
+# Optional: For Nominatim geocoding usage policy compliance
 GEOCODING_EMAIL = "your_email@example.com"
+
+# Recommended: For RentCast external market data
+RENTCAST_API_KEY = "your_api_key_here"
 ```
 
-Currently, the app works without any environment variables.
+**Note:** The app works without any API keys:
+- **Without RentCast key:** Uses only internal rent roll data for comparables
+- **With RentCast key:** Adds nationwide market comparables + caches them for reuse
 
 ## Database Persistence
 
@@ -147,6 +162,8 @@ The current demo works with the pre-loaded database. Users can also upload their
 ✅ Parse property data with smart address extraction
 ✅ Geocode addresses using Census Batch API (143x faster)
 ✅ Generate CMA reports with comparable properties search
+✅ **RentCast API integration** - Nationwide market comparables
+✅ **Smart caching** - Save API responses for reuse (ToS compliant)
 ✅ Export to PDF, Excel, and HTML
 ✅ View and manage properties database
 ✅ Manual address entry for CMA generation
@@ -278,12 +295,100 @@ CMD ["streamlit", "run", "app.py"]
    - Follow steps above
    - Share URL with users
 
+## RentCast API Integration
+
+### Overview
+
+The app includes optional RentCast API integration to supplement internal rent roll data with nationwide market comparables.
+
+### How It Works
+
+1. **Smart Caching:**
+   - First API call in an area: Fetches and saves up to 25 comps
+   - Subsequent CMAs: Uses cached data (free, no API cost)
+   - Cache age tracking: Shows how old cached data is
+
+2. **User Control:**
+   - App checks for cached RentCast data
+   - User chooses: "Use Cached Data (free)" or "Refresh (1 API call)"
+   - Prevents accidental duplicate requests
+
+3. **Data Persistence:**
+   - RentCast Terms of Service **allows** storing API data
+   - Comps saved to `external_comps` table in SQLite
+   - No time limit on cached data retention
+   - Geographic radius-based queries
+
+### Setup Instructions
+
+**Step 1: Get Free RentCast API Key**
+1. Sign up at https://app.rentcast.io/
+2. Navigate to https://app.rentcast.io/app/api
+3. Copy your API key
+4. Free tier: 50 API requests/month
+
+**Step 2: Add to Streamlit Cloud**
+1. Go to your app's Streamlit Cloud dashboard
+2. Click "⚙️ Settings" > "Secrets"
+3. Add:
+   ```toml
+   RENTCAST_API_KEY = "your_api_key_here"
+   ```
+4. Save and redeploy
+
+**Step 3: Verify**
+- Generate a CMA in the app
+- You should see "🌐 External Market Data (RentCast)" section
+- Click "Fetch RentCast Comparables"
+- Should return ~25 comps and cache them
+
+### Economics
+
+**Free Tier Efficiency:**
+- 50 requests/month × 25 comps = 1,250 cached properties
+- After caching: Unlimited CMAs in those areas (no API cost)
+- Perfect for single user or small team
+
+**Example Usage:**
+- Month 1: Make 10 API calls in 10 different areas = 250 cached comps
+- Month 2-12: Use cached data only = 0 API calls
+- Result: 10 months of free external data
+
+### Without API Key
+
+The app works perfectly without a RentCast API key:
+- Uses only internal rent roll data
+- All core CMA features function normally
+- User sees "No cached RentCast data" message
+- Can still generate comprehensive CMAs from internal data
+
+### Troubleshooting
+
+**"Invalid RentCast API key" error:**
+- Double-check API key in Streamlit secrets
+- Ensure no extra spaces or quotes
+- Verify key is active at https://app.rentcast.io/app/api
+
+**"Rate limit exceeded" error:**
+- Free tier: 50 requests/month
+- Wait until next month or upgrade plan
+- Use cached data in the meantime
+
+**No comps returned:**
+- RentCast may not have data for that specific area
+- App falls back to internal comps only
+- Try a different nearby address
+
 ## Support
 
 For deployment issues:
 - Streamlit Docs: https://docs.streamlit.io/deploy
 - Community Forum: https://discuss.streamlit.io/
 - GitHub Issues: Create issue in your repository
+
+For RentCast API issues:
+- API Docs: https://developers.rentcast.io/
+- Support: Contact via https://www.rentcast.io/
 
 ---
 
