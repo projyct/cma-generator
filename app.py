@@ -975,11 +975,18 @@ if page == "🔍 Generate CMA":
             st.session_state.comparables = all_comparables
 
             # Debug info (temporary)
-            with st.expander("🔍 Debug Info", expanded=False):
-                st.write(f"External comps in session state: {len(st.session_state.get('external_comps', []))}")
-                st.write(f"External comps variable: {len(external_comps)}")
-                st.write(f"Internal comparables: {len(comparables)}")
-                st.write(f"Total after merge: {len(all_comparables)}")
+            with st.expander("🔍 Debug Info", expanded=True):
+                st.write("**Session State:**")
+                st.write(f"- external_comps in session state: {len(st.session_state.get('external_comps', []))}")
+                st.write(f"- external_comps variable: {len(external_comps)}")
+                st.write(f"- cached_external from DB: {len(cached_external)}")
+                st.write("\n**Comparables:**")
+                st.write(f"- Internal comparables: {len(comparables)}")
+                st.write(f"- Total after merge: {len(all_comparables)}")
+                if external_comps:
+                    st.success(f"✅ external_comps has {len(external_comps)} items - SHOULD APPEAR IN TABLE")
+                else:
+                    st.error("❌ external_comps is empty - DATA NOT PERSISTING")
 
             # Summary
             internal_count = len(comparables)
