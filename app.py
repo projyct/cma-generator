@@ -942,7 +942,6 @@ if page == "🔍 Generate CMA":
                     subject_lat = selected_prop['latitude']
                     subject_lon = selected_prop['longitude']
                     st.success(f"✅ Using coordinates from database")
-                    st.info(f"🔍 **Debug:** Address=`{final_address}` | Coords=({subject_lat:.6f}, {subject_lon:.6f})")
                 else:
                     # Property exists but not geocoded yet
                     geocode_result = st.session_state.geocoder.geocode_with_quality(final_address)
@@ -968,7 +967,6 @@ if page == "🔍 Generate CMA":
                     st.success(f"✅ Successfully geocoded!")
                     st.info(f"**Standardized:** {geocode_result['standardized_address']}")
                     st.info(f"**Quality:** {geocode_result['quality'].upper()}")
-                    st.info(f"🔍 **Debug:** Coords=({subject_lat:.6f}, {subject_lon:.6f})")
 
                     if geocode_result['quality'] == 'city' or geocode_result['quality'] == 'zip':
                         st.warning(f"⚠️ Only {geocode_result['quality']}-level match found. Results may be less precise.")
