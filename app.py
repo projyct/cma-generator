@@ -117,6 +117,9 @@ if 'report_generator' not in st.session_state:
 if 'rentcast' not in st.session_state:
     st.session_state.rentcast = get_rentcast_client()
 
+if 'external_comps' not in st.session_state:
+    st.session_state.external_comps = []
+
 if 'comparables' not in st.session_state:
     st.session_state.comparables = []
 
@@ -730,6 +733,9 @@ if page == "🔍 Generate CMA":
 
     # Search button
     if st.button("🔍 Find Comparables", type="primary"):
+        # Clear external comps when starting a new CMA search
+        st.session_state.external_comps = []
+
         if not final_address:
             st.error("❌ Please select or enter a subject property address")
             st.stop()
@@ -868,8 +874,8 @@ if page == "🔍 Generate CMA":
                     refresh = st.button("🔄 Refresh from RentCast (1 API call)", type="primary")
 
                 if use_cached:
-                    external_comps = cached_external
-                    st.success(f"Using {len(external_comps)} cached RentCast comps")
+                    st.session_state.external_comps = cached_external
+                    st.success(f"Using {len(st.session_state.external_comps)} cached RentCast comps")
                 elif refresh:
                     # Make RentCast API call
                     with st.spinner("Fetching fresh data from RentCast API..."):
@@ -887,8 +893,8 @@ if page == "🔍 Generate CMA":
                             normalized_comps = st.session_state.rentcast.normalize_comparables(response)
                             saved_count = st.session_state.db.save_external_comps(normalized_comps, source='RentCast')
 
-                            # Fetch newly saved comps
-                            external_comps = st.session_state.db.find_external_comps(
+                            # Fetch newly saved comps and save to session state
+                            st.session_state.external_comps = st.session_state.db.find_external_comps(
                                 subject_lat,
                                 subject_lon,
                                 search_radius,
@@ -899,11 +905,12 @@ if page == "🔍 Generate CMA":
 
                             st.success(f"✅ Retrieved and saved {saved_count} fresh RentCast comps!")
                             st.info(f"💡 **Tip:** These comps are now cached. Future CMAs in this area won't use API calls.")
+                            st.rerun()
 
                         except Exception as e:
                             st.error(f"❌ RentCast API Error: {str(e)}")
                             st.info("💡 Using internal comps only. Check your RENTCAST_API_KEY if you want external data.")
-                            external_comps = []
+                            st.session_state.external_comps = []
             else:
                 # No cached data, offer to fetch
                 st.markdown("---")
@@ -926,8 +933,8 @@ if page == "🔍 Generate CMA":
                             normalized_comps = st.session_state.rentcast.normalize_comparables(response)
                             saved_count = st.session_state.db.save_external_comps(normalized_comps, source='RentCast')
 
-                            # Fetch newly saved comps
-                            external_comps = st.session_state.db.find_external_comps(
+                            # Fetch newly saved comps and save to session state
+                            st.session_state.external_comps = st.session_state.db.find_external_comps(
                                 subject_lat,
                                 subject_lon,
                                 search_radius,
@@ -938,15 +945,19 @@ if page == "🔍 Generate CMA":
 
                             st.success(f"✅ Retrieved and saved {saved_count} RentCast comps!")
                             st.info(f"💡 These comps are now cached for future use (free).")
+                            st.rerun()
 
                         except Exception as e:
                             st.error(f"❌ RentCast API Error: {str(e)}")
                             if "not configured" in str(e):
                                 st.info("💡 To use RentCast: Set RENTCAST_API_KEY environment variable. Get your free key at https://app.rentcast.io/app/api")
-                            external_comps = []
+                            st.session_state.external_comps = []
 
             # Merge internal and external comps
             all_comparables = comparables.copy()
+
+            # Read external comps from session state
+            external_comps = st.session_state.get('external_comps', [])
 
             if external_comps:
                 # Normalize external comps format to match internal
