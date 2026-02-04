@@ -123,6 +123,9 @@ if 'external_comps' not in st.session_state:
 if 'comparables' not in st.session_state:
     st.session_state.comparables = []
 
+if 'search_params' not in st.session_state:
+    st.session_state.search_params = None
+
 if 'selected_comps' not in st.session_state:
     st.session_state.selected_comps = []
 
@@ -736,6 +739,9 @@ if page == "🔍 Generate CMA":
         # Clear external comps when starting a new CMA search
         st.session_state.external_comps = []
 
+        # Mark that a search has been performed
+        st.session_state.cma_search_active = True
+
         if not final_address:
             st.error("❌ Please select or enter a subject property address")
             st.stop()
@@ -813,6 +819,17 @@ if page == "🔍 Generate CMA":
                 # In production, would need to handle multiple
                 filters['status'] = status_filter[0] if len(status_filter) == 1 else None
 
+            # Save search parameters to session state for RentCast UI
+            st.session_state.search_params = {
+                'subject_lat': subject_lat,
+                'subject_lon': subject_lon,
+                'search_radius': search_radius,
+                'filters': filters,
+                'subject_beds': subject_beds,
+                'subject_baths': subject_baths,
+                'subject_sqft': subject_sqft
+            }
+
             # Find comparables
             comparables = st.session_state.db.find_comparables(
                 subject_lat,
@@ -835,128 +852,6 @@ if page == "🔍 Generate CMA":
             # Exclude subject property itself
             comparables = [c for c in comparables if c['address'] != final_address]
 
-            # Read external comps from session state
-            external_comps = st.session_state.get('external_comps', [])
-
-            # Check for cached external comparables from RentCast
-            cached_external = st.session_state.db.find_external_comps(
-                subject_lat,
-                subject_lon,
-                search_radius,
-                filters,
-                max_age_days=30,
-                source='RentCast'
-            )
-
-            # RentCast integration UI
-            if cached_external:
-                # Calculate age of cached data
-                import sqlite3
-                from datetime import datetime
-                if cached_external[0].get('age_days') is not None:
-                    age_days = int(cached_external[0]['age_days'])
-                else:
-                    age_days = 0
-
-                # Show cache status
-                st.markdown("---")
-                st.markdown("### 🌐 External Market Data (RentCast)")
-
-                if age_days < 7:
-                    st.success(f"🟢 Found {len(cached_external)} cached RentCast comps (retrieved {age_days} days ago - fresh!)")
-                elif age_days < 30:
-                    st.info(f"🟡 Found {len(cached_external)} cached RentCast comps (retrieved {age_days} days ago)")
-                else:
-                    st.warning(f"🟠 Found {len(cached_external)} cached RentCast comps (retrieved {age_days} days ago - consider refreshing)")
-
-                col1, col2 = st.columns(2)
-                with col1:
-                    use_cached = st.button("✅ Use Cached Data (free)", type="secondary")
-                with col2:
-                    refresh = st.button("🔄 Refresh from RentCast (1 API call)", type="primary")
-
-                if use_cached:
-                    st.session_state.external_comps = cached_external
-                    st.success(f"Using {len(st.session_state.external_comps)} cached RentCast comps")
-                elif refresh:
-                    # Make RentCast API call
-                    with st.spinner("Fetching fresh data from RentCast API..."):
-                        try:
-                            response = st.session_state.rentcast.get_rent_estimate(
-                                latitude=subject_lat,
-                                longitude=subject_lon,
-                                bedrooms=int(subject_beds) if subject_beds > 0 else None,
-                                bathrooms=subject_baths if subject_baths > 0 else None,
-                                sqft=subject_sqft if subject_sqft > 0 else None,
-                                comp_count=25
-                            )
-
-                            # Normalize and save to database
-                            normalized_comps = st.session_state.rentcast.normalize_comparables(response)
-                            saved_count = st.session_state.db.save_external_comps(normalized_comps, source='RentCast')
-
-                            # Fetch newly saved comps and save to session state
-                            st.session_state.external_comps = st.session_state.db.find_external_comps(
-                                subject_lat,
-                                subject_lon,
-                                search_radius,
-                                filters,
-                                max_age_days=30,
-                                source='RentCast'
-                            )
-
-                            st.success(f"✅ Retrieved and saved {saved_count} fresh RentCast comps!")
-                            st.info(f"💡 **Tip:** These comps are now cached. Future CMAs in this area won't use API calls.")
-
-                        except Exception as e:
-                            st.error(f"❌ RentCast API Error: {str(e)}")
-                            st.info("💡 Using internal comps only. Check your RENTCAST_API_KEY if you want external data.")
-                            st.session_state.external_comps = []
-            else:
-                # No cached data, offer to fetch
-                st.markdown("---")
-                st.markdown("### 🌐 External Market Data (RentCast)")
-                st.info("No cached RentCast data found for this area")
-
-                if st.button("🔄 Fetch RentCast Comparables (1 API call)", type="primary"):
-                    st.write("🔍 DEBUG: Button was clicked!")  # Debug
-                    with st.spinner("Fetching data from RentCast API..."):
-                        try:
-                            st.write("🔍 DEBUG: Making API call...")  # Debug
-                            response = st.session_state.rentcast.get_rent_estimate(
-                                latitude=subject_lat,
-                                longitude=subject_lon,
-                                bedrooms=int(subject_beds) if subject_beds > 0 else None,
-                                bathrooms=subject_baths if subject_baths > 0 else None,
-                                sqft=subject_sqft if subject_sqft > 0 else None,
-                                comp_count=25
-                            )
-
-                            # Normalize and save to database
-                            normalized_comps = st.session_state.rentcast.normalize_comparables(response)
-                            saved_count = st.session_state.db.save_external_comps(normalized_comps, source='RentCast')
-
-                            # Fetch newly saved comps and save to session state
-                            st.session_state.external_comps = st.session_state.db.find_external_comps(
-                                subject_lat,
-                                subject_lon,
-                                search_radius,
-                                filters,
-                                max_age_days=30,
-                                source='RentCast'
-                            )
-
-                            st.success(f"✅ Retrieved and saved {saved_count} RentCast comps!")
-                            st.info(f"💡 These comps are now cached for future use (free).")
-                            # Force rerun to display the data in the table
-                            st.rerun()
-
-                        except Exception as e:
-                            st.error(f"❌ RentCast API Error: {str(e)}")
-                            if "not configured" in str(e):
-                                st.info("💡 To use RentCast: Set RENTCAST_API_KEY environment variable. Get your free key at https://app.rentcast.io/app/api")
-                            st.session_state.external_comps = []
-
             # Merge internal and external comps
             all_comparables = comparables.copy()
 
@@ -969,37 +864,120 @@ if page == "🔍 Generate CMA":
                     ext_comp['rent'] = ext_comp.get('rent_price', 0)
                     ext_comp['rent_source'] = 'RentCast Market Data'
                     ext_comp['source'] = 'RentCast'
-                    # Keep existing fields: address, bedrooms, bathrooms, sqft, distance_miles, etc.
 
                 all_comparables.extend(external_comps)
-
-                # Sort by distance
                 all_comparables.sort(key=lambda x: x.get('distance_miles', 999))
 
             st.session_state.comparables = all_comparables
 
-            # Debug info (temporary)
-            with st.expander("🔍 Debug Info", expanded=True):
-                st.write("**Session State:**")
-                st.write(f"- external_comps in session state: {len(st.session_state.get('external_comps', []))}")
-                st.write(f"- external_comps variable: {len(external_comps)}")
-                st.write(f"- cached_external from DB: {len(cached_external)}")
-                st.write("\n**Comparables:**")
-                st.write(f"- Internal comparables: {len(comparables)}")
-                st.write(f"- Total after merge: {len(all_comparables)}")
-                if external_comps:
-                    st.success(f"✅ external_comps has {len(external_comps)} items - SHOULD APPEAR IN TABLE")
-                else:
-                    st.error("❌ external_comps is empty - DATA NOT PERSISTING")
-
             # Summary
             internal_count = len(comparables)
             external_count = len(external_comps)
-            st.markdown("---")
             if external_count > 0:
                 st.success(f"✅ Total: {len(all_comparables)} comparables ({internal_count} internal + {external_count} RentCast)")
             else:
                 st.success(f"✅ Found {internal_count} internal comparable properties")
+
+    # RentCast External Data Section (outside Find Comparables button)
+    # This section persists across button clicks using session state
+    if st.session_state.search_params is not None:
+        params = st.session_state.search_params
+
+        st.markdown("---")
+        st.markdown("### 🌐 External Market Data (RentCast)")
+
+        # Check for cached data
+        cached_external = st.session_state.db.find_external_comps(
+            params['subject_lat'],
+            params['subject_lon'],
+            params['search_radius'],
+            params['filters'],
+            max_age_days=30,
+            source='RentCast'
+        )
+
+        if cached_external:
+            # Show cached data info
+            age_days = int(cached_external[0].get('age_days', 0)) if cached_external[0].get('age_days') is not None else 0
+
+            if age_days < 7:
+                st.success(f"🟢 Found {len(cached_external)} cached RentCast comps (retrieved {age_days} days ago - fresh!)")
+            elif age_days < 30:
+                st.info(f"🟡 Found {len(cached_external)} cached RentCast comps (retrieved {age_days} days ago)")
+            else:
+                st.warning(f"🟠 Found {len(cached_external)} cached RentCast comps (retrieved {age_days} days ago - consider refreshing)")
+
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("✅ Use Cached Data (free)", key="use_cached_btn"):
+                    st.session_state.external_comps = cached_external
+                    st.rerun()
+            with col2:
+                if st.button("🔄 Refresh from RentCast (1 API call)", key="refresh_btn"):
+                    with st.spinner("Fetching fresh data from RentCast API..."):
+                        try:
+                            response = st.session_state.rentcast.get_rent_estimate(
+                                latitude=params['subject_lat'],
+                                longitude=params['subject_lon'],
+                                bedrooms=int(params['subject_beds']) if params['subject_beds'] > 0 else None,
+                                bathrooms=params['subject_baths'] if params['subject_baths'] > 0 else None,
+                                sqft=params['subject_sqft'] if params['subject_sqft'] > 0 else None,
+                                comp_count=25
+                            )
+
+                            normalized_comps = st.session_state.rentcast.normalize_comparables(response)
+                            saved_count = st.session_state.db.save_external_comps(normalized_comps, source='RentCast')
+
+                            st.session_state.external_comps = st.session_state.db.find_external_comps(
+                                params['subject_lat'],
+                                params['subject_lon'],
+                                params['search_radius'],
+                                params['filters'],
+                                max_age_days=30,
+                                source='RentCast'
+                            )
+
+                            st.success(f"✅ Retrieved and saved {saved_count} fresh RentCast comps!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ RentCast API Error: {str(e)}")
+                            st.session_state.external_comps = []
+        else:
+            # No cached data
+            st.info("No cached RentCast data found for this area")
+
+            if st.button("🔄 Fetch RentCast Comparables (1 API call)", key="fetch_new_btn"):
+                with st.spinner("Fetching data from RentCast API..."):
+                    try:
+                        response = st.session_state.rentcast.get_rent_estimate(
+                            latitude=params['subject_lat'],
+                            longitude=params['subject_lon'],
+                            bedrooms=int(params['subject_beds']) if params['subject_beds'] > 0 else None,
+                            bathrooms=params['subject_baths'] if params['subject_baths'] > 0 else None,
+                            sqft=params['subject_sqft'] if params['subject_sqft'] > 0 else None,
+                            comp_count=25
+                        )
+
+                        normalized_comps = st.session_state.rentcast.normalize_comparables(response)
+                        saved_count = st.session_state.db.save_external_comps(normalized_comps, source='RentCast')
+
+                        st.session_state.external_comps = st.session_state.db.find_external_comps(
+                            params['subject_lat'],
+                            params['subject_lon'],
+                            params['search_radius'],
+                            params['filters'],
+                            max_age_days=30,
+                            source='RentCast'
+                        )
+
+                        st.success(f"✅ Retrieved and saved {saved_count} RentCast comps!")
+                        st.info(f"💡 These comps are now cached for future use (free).")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ RentCast API Error: {str(e)}")
+                        if "not configured" in str(e):
+                            st.info("💡 To use RentCast: Set RENTCAST_API_KEY environment variable. Get your free key at https://app.rentcast.io/app/api")
+                        st.session_state.external_comps = []
 
     # Display comparables
     if st.session_state.comparables:
