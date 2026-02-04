@@ -42,6 +42,10 @@ class Database:
             conn.row_factory = sqlite3.Row  # Enable column access by name
             return conn
     
+    def _placeholder(self) -> str:
+        """Return the correct parameter placeholder for the current engine"""
+        return '%s' if self.engine == 'postgresql' else '?'
+
     def _sql(self, sql: str) -> str:
         """Convert SQL to engine-specific syntax"""
         if self.engine == 'postgresql':
@@ -521,35 +525,35 @@ class Database:
         # Add optional filters (must reference subquery columns)
         if filters:
             if filters.get('bedrooms'):
-                query += " AND bedrooms = ?"
+                query += f" AND bedrooms = {self._placeholder()}"
                 params.append(filters['bedrooms'])
 
             if filters.get('bathrooms'):
-                query += " AND bathrooms = ?"
+                query += f" AND bathrooms = {self._placeholder()}"
                 params.append(filters['bathrooms'])
 
             if filters.get('sqft_min'):
-                query += " AND sqft >= ?"
+                query += f" AND sqft >= {self._placeholder()}"
                 params.append(filters['sqft_min'])
 
             if filters.get('sqft_max'):
-                query += " AND sqft <= ?"
+                query += f" AND sqft <= {self._placeholder()}"
                 params.append(filters['sqft_max'])
 
             if filters.get('property_type'):
-                query += " AND property_type = ?"
+                query += f" AND property_type = {self._placeholder()}"
                 params.append(filters['property_type'])
 
             if filters.get('year_built_min'):
-                query += " AND year_built >= ?"
+                query += f" AND year_built >= {self._placeholder()}"
                 params.append(filters['year_built_min'])
 
             if filters.get('year_built_max'):
-                query += " AND year_built <= ?"
+                query += f" AND year_built <= {self._placeholder()}"
                 params.append(filters['year_built_max'])
 
             if filters.get('status'):
-                query += " AND status = ?"
+                query += f" AND status = {self._placeholder()}"
                 params.append(filters['status'])
 
         query += " ORDER BY distance_miles"
@@ -759,19 +763,19 @@ class Database:
 
         if filters:
             if filters.get('bedrooms'):
-                query += " AND bedrooms = ?"
+                query += f" AND bedrooms = {self._placeholder()}"
                 params.append(filters['bedrooms'])
 
             if filters.get('bathrooms'):
-                query += " AND bathrooms = ?"
+                query += f" AND bathrooms = {self._placeholder()}"
                 params.append(filters['bathrooms'])
 
             if filters.get('sqft_min'):
-                query += " AND sqft >= ?"
+                query += f" AND sqft >= {self._placeholder()}"
                 params.append(filters['sqft_min'])
 
             if filters.get('sqft_max'):
-                query += " AND sqft <= ?"
+                query += f" AND sqft <= {self._placeholder()}"
                 params.append(filters['sqft_max'])
 
         query += " ORDER BY distance_miles"
@@ -881,21 +885,21 @@ class Database:
         params = [center_lat, center_lon, center_lat, radius_miles, max_age_days]
 
         if source:
-            query += " AND source = ?"
+            query += f" AND source = {self._placeholder()}"
             params.append(source)
 
         if filters:
             if filters.get('bedrooms'):
-                query += " AND bedrooms = ?"
+                query += f" AND bedrooms = {self._placeholder()}"
                 params.append(filters['bedrooms'])
             if filters.get('bathrooms'):
-                query += " AND bathrooms = ?"
+                query += f" AND bathrooms = {self._placeholder()}"
                 params.append(filters['bathrooms'])
             if filters.get('sqft_min'):
-                query += " AND sqft >= ?"
+                query += f" AND sqft >= {self._placeholder()}"
                 params.append(filters['sqft_min'])
             if filters.get('sqft_max'):
-                query += " AND sqft <= ?"
+                query += f" AND sqft <= {self._placeholder()}"
                 params.append(filters['sqft_max'])
 
         query += " ORDER BY distance_miles, correlation_score DESC"
@@ -930,7 +934,7 @@ class Database:
         """)
 
         if source:
-            query += " WHERE source = ?"
+            query += f" WHERE source = {self._placeholder()}"
             cursor.execute(query, (source,))
         else:
             query += " GROUP BY source"
