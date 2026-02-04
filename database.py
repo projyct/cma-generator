@@ -944,21 +944,30 @@ class Database:
         conn = self.get_connection()
         cursor = conn.cursor()
 
-        query = self._sql("""
-            SELECT
-                COUNT(*) as total_count,
-                MIN(retrieved_date) as oldest_date,
-                MAX(retrieved_date) as newest_date,
-                AVG(julianday('now') - julianday(retrieved_date)) as avg_age_days,
-                source
-            FROM external_comps
-        """)
-
         if source:
-            query += f" WHERE source = {self._placeholder()}"
+            # When filtering by specific source, don't need source in SELECT or GROUP BY
+            query = self._sql("""
+                SELECT
+                    COUNT(*) as total_count,
+                    MIN(retrieved_date) as oldest_date,
+                    MAX(retrieved_date) as newest_date,
+                    AVG(julianday('now') - julianday(retrieved_date)) as avg_age_days
+                FROM external_comps
+                WHERE source = """ + self._placeholder() + """
+            """)
             cursor.execute(query, (source,))
         else:
-            query += " GROUP BY source"
+            # When not filtering, group by source and include it in SELECT
+            query = self._sql("""
+                SELECT
+                    COUNT(*) as total_count,
+                    MIN(retrieved_date) as oldest_date,
+                    MAX(retrieved_date) as newest_date,
+                    AVG(julianday('now') - julianday(retrieved_date)) as avg_age_days,
+                    source
+                FROM external_comps
+                GROUP BY source
+            """)
             cursor.execute(query)
 
         rows = cursor.fetchall()

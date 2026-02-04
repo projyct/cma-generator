@@ -792,28 +792,13 @@ if page == "⚙️ Data Management":
 if page == "🔍 Generate CMA":
     st.title("🔍 Generate CMA Report")
 
-    # Database status widget
+    # Check if database has properties
     all_props_check = st.session_state.db.get_all_properties()
-    geocode_stats_check = st.session_state.db.get_geocoding_stats()
 
     if not all_props_check:
         st.warning("⚠️ **No properties in database yet**")
         st.info("👉 Go to **Data Management** to upload your rent roll and get started")
         st.stop()
-
-    # Show database readiness status
-    col1, col2, col3 = st.columns(3)
-    col1.metric("📊 Properties", len(all_props_check))
-    # Count both 'geocoded' and 'completed' statuses
-    geocoded_count = geocode_stats_check.get('geocoded', 0) + geocode_stats_check.get('completed', 0)
-    geocode_pct = (geocoded_count / geocode_stats_check.get('total', 1)) * 100 if geocode_stats_check.get('total', 0) > 0 else 0
-    col2.metric("🗺️ Geocoded", f"{geocode_pct:.0f}%")
-    col3.metric("✅ Ready", geocoded_count)
-
-    if geocode_pct < 50:
-        st.info("💡 Tip: Geocode more properties in **Data Management** tab 2 for better CMA results")
-
-    st.markdown("---")
 
     # Input form
     st.markdown("### Subject Property")
