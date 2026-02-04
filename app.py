@@ -979,6 +979,32 @@ if page == "🔍 Generate CMA":
                             st.info("💡 To use RentCast: Set RENTCAST_API_KEY environment variable. Get your free key at https://app.rentcast.io/app/api")
                         st.session_state.external_comps = []
 
+        # Re-merge comparables when external comps change
+        # This ensures the table updates after fetching RentCast data
+        if st.session_state.get('comparables'):
+            # Get current internal comps from session state
+            current_comps = st.session_state.comparables
+            internal_comps = [c for c in current_comps if c.get('source') != 'RentCast']
+
+            # Get external comps
+            external_comps = st.session_state.get('external_comps', [])
+
+            # Rebuild merged list
+            all_comparables = internal_comps.copy()
+
+            if external_comps:
+                # Normalize external comps
+                for ext_comp in external_comps:
+                    ext_comp['rent'] = ext_comp.get('rent_price', 0)
+                    ext_comp['rent_source'] = 'RentCast Market Data'
+                    ext_comp['source'] = 'RentCast'
+
+                all_comparables.extend(external_comps)
+                all_comparables.sort(key=lambda x: x.get('distance_miles', 999))
+
+            # Update session state
+            st.session_state.comparables = all_comparables
+
     # Display comparables
     if st.session_state.comparables:
         st.markdown("### 📋 Comparable Properties")
