@@ -824,7 +824,7 @@ class Database:
                 )
 
                 if self.engine == 'postgresql':
-                    # PostgreSQL: Use ON CONFLICT with %s placeholders
+                    # PostgreSQL: Use ON CONFLICT with RETURNING to detect actual inserts
                     cursor.execute("""
                         INSERT INTO external_comps (
                             address, city, state, zip_code,
@@ -836,9 +836,14 @@ class Database:
                         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (source, source_id)
                         DO UPDATE SET retrieved_date = CURRENT_TIMESTAMP
+                        RETURNING (xmax = 0) AS inserted
                     """, values)
+                    # xmax = 0 means INSERT happened, xmax > 0 means UPDATE happened
+                    result = cursor.fetchone()
+                    if result and result[0]:
+                        saved_count += 1
                 else:
-                    # SQLite: Use INSERT OR REPLACE with ? placeholders
+                    # SQLite: INSERT OR REPLACE always counts as new
                     cursor.execute("""
                         INSERT OR REPLACE INTO external_comps (
                             address, city, state, zip_code,
@@ -849,8 +854,7 @@ class Database:
                             listing_status, days_on_market
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, values)
-
-                saved_count += 1
+                    saved_count += 1
             except Exception as e:
                 # Make errors visible in Streamlit UI
                 import streamlit as st

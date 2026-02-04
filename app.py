@@ -206,6 +206,24 @@ st.markdown("""
     .stButton button {
         min-height: 40px;
     }
+
+    /* Disable Streamlit's rerun fade animation to prevent grey page flash */
+    .main .block-container {
+        transition: none !important;
+    }
+
+    .stApp > div {
+        transition: none !important;
+    }
+
+    div[data-testid="stStatusWidget"] {
+        transition: none !important;
+    }
+
+    /* Prevent grey overlay during reruns */
+    .stApp [data-testid="stAppViewContainer"] {
+        transition: none !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -760,7 +778,10 @@ if page == "⚙️ Data Management":
             elif geocoded_filter == "Not Geocoded":
                 filtered_df = filtered_df[filtered_df['Geocoded'] == '❌']
 
-            st.markdown(f"### 📊 Showing {len(filtered_df)} of {len(df)} properties")
+            # Show count with RentCast total
+            st.markdown(f"### 📊 Rent Roll: Showing {len(filtered_df)} of {len(df)} properties")
+            if rentcast_stats and rentcast_stats.get('total_count', 0) > 0:
+                st.info(f"💡 Plus **{rentcast_stats.get('total_count', 0)} RentCast comparables** in cache (used in CMA generation)")
 
             st.dataframe(filtered_df, hide_index=True, width='stretch')
 
@@ -1098,6 +1119,7 @@ if page == "🔍 Generate CMA":
                             )
 
                             normalized_comps = st.session_state.rentcast.normalize_comparables(response)
+                            api_count = len(normalized_comps)
                             saved_count = st.session_state.db.save_external_comps(normalized_comps, source='RentCast')
 
                             st.session_state.external_comps = st.session_state.db.find_external_comps(
@@ -1109,7 +1131,18 @@ if page == "🔍 Generate CMA":
                                 source='RentCast'
                             )
 
-                            st.success(f"✅ Retrieved and saved {saved_count} fresh RentCast comps!")
+                            # Show detailed fetch results
+                            filtered_count = len(st.session_state.external_comps)
+                            if saved_count > 0:
+                                st.success(f"✅ Retrieved {api_count} RentCast comps from API")
+                                st.info(f"💾 Saved {saved_count} new comps to database (rest were already cached)")
+                            else:
+                                st.info(f"✅ Retrieved {api_count} RentCast comps from API")
+                                st.info(f"💡 All {api_count} comps were already in cache (no API quota used)")
+
+                            if filtered_count < api_count:
+                                st.info(f"📊 {filtered_count} match your search criteria ({params['search_radius']} mi radius, {params['subject_beds']}bd/{params['subject_baths']}ba)")
+
                             st.rerun()
                         except Exception as e:
                             st.error(f"❌ RentCast API Error: {str(e)}")
@@ -1131,6 +1164,7 @@ if page == "🔍 Generate CMA":
                         )
 
                         normalized_comps = st.session_state.rentcast.normalize_comparables(response)
+                        api_count = len(normalized_comps)
                         saved_count = st.session_state.db.save_external_comps(normalized_comps, source='RentCast')
 
                         st.session_state.external_comps = st.session_state.db.find_external_comps(
@@ -1142,8 +1176,14 @@ if page == "🔍 Generate CMA":
                             source='RentCast'
                         )
 
-                        st.success(f"✅ Retrieved and saved {saved_count} RentCast comps!")
-                        st.info(f"💡 These comps are now cached for future use (free).")
+                        # Show detailed fetch results
+                        filtered_count = len(st.session_state.external_comps)
+                        st.success(f"✅ Retrieved {api_count} RentCast comps from API")
+                        st.info(f"💾 Saved {saved_count} new comps to database • 💡 These are cached for future use (free)")
+
+                        if filtered_count < api_count:
+                            st.info(f"📊 {filtered_count} match your search criteria ({params['search_radius']} mi radius, {params['subject_beds']}bd/{params['subject_baths']}ba)")
+
                         st.rerun()
                     except Exception as e:
                         st.error(f"❌ RentCast API Error: {str(e)}")
