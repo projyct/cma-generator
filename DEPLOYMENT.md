@@ -2,22 +2,21 @@
 
 ## 🚀 Currently Deployed
 
-**Live Demo:** https://cma-generator-hhwdzmqw9u5ukcpgwdu7pc.streamlit.app/
-
 **Deployment Details:**
 - **Platform:** Streamlit Community Cloud (Free Tier)
 - **Repository:** https://github.com/projyct/cma-generator
 - **Branch:** main
 - **Account:** projyct
-- **Status:** ✅ Active
+- **Status:** ✅ Active (Password Protected)
 - **Deployed:** February 3, 2026
 - **Last Updated:** Auto-deploys on push to main branch
+- **Access:** Contact repository owner for credentials
 
 **Features:**
 - Pre-loaded with 4,738 demo properties (PII removed)
 - Geocoded addresses ready for immediate CMA generation
 - Mobile-optimized UI (responsive design)
-- No authentication required (public demo)
+- Password authentication (protects RentCast API quota)
 
 ---
 

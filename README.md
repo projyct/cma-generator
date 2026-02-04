@@ -4,7 +4,7 @@ A comprehensive tool for generating Comparative Market Analysis (CMA) reports ba
 
 ## 🚀 Live Demo
 
-**Try it now:** https://cma-generator-k2szbvxthefhkrggxvjblh.streamlit.app/
+**Live deployment available** - Contact the repository owner for access credentials.
 
 Pre-loaded with 4,738 demo properties (PII removed) for immediate CMA generation. Mobile-optimized and ready to use!
 

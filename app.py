@@ -24,6 +24,48 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# Authentication check
+def check_password():
+    """Returns `True` if the user had the correct password."""
+
+    def password_entered():
+        """Checks whether a password entered by the user is correct."""
+        # Get password from environment variable or Streamlit secrets
+        correct_password = os.getenv("APP_PASSWORD") or st.secrets.get("APP_PASSWORD", "")
+
+        if st.session_state["password"] == correct_password:
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]  # Don't store password
+        else:
+            st.session_state["password_correct"] = False
+
+    # Return True if password already validated
+    if st.session_state.get("password_correct", False):
+        return True
+
+    # Show password input
+    st.title("🔐 CMA Generator - Access Required")
+    st.markdown("---")
+    st.info("Please enter the access password to continue.")
+
+    st.text_input(
+        "Password",
+        type="password",
+        on_change=password_entered,
+        key="password",
+        help="Contact the administrator if you need access"
+    )
+
+    # Show error if password was incorrect
+    if st.session_state.get("password_correct", None) == False:
+        st.error("😕 Incorrect password. Please try again.")
+
+    return False
+
+# Check authentication before loading app
+if not check_password():
+    st.stop()  # Do not continue if password is incorrect
+
 # Mobile-optimized CSS
 st.markdown("""
 <style>
