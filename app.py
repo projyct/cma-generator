@@ -1335,128 +1335,6 @@ if page == "🔍 Generate CMA":
                 value=f"CMA_{final_address.split(',')[0]}_{datetime.now().strftime('%Y%m%d')}"
             )
 
-            # Google Docs Export
-            st.markdown("---")
-            st.markdown("### 📝 Export to Google Docs")
-
-            # Check if OAuth library and credentials are configured
-            if not GOOGLE_OAUTH_AVAILABLE:
-                st.warning("⚠️ Install `streamlit-oauth` to enable Google Docs export")
-            else:
-                google_client_id = os.getenv("GOOGLE_CLIENT_ID") or st.secrets.get("GOOGLE_CLIENT_ID", "")
-                google_client_secret = os.getenv("GOOGLE_CLIENT_SECRET") or st.secrets.get("GOOGLE_CLIENT_SECRET", "")
-                google_redirect_uri = os.getenv("GOOGLE_REDIRECT_URI") or st.secrets.get("GOOGLE_REDIRECT_URI", "http://localhost:8501")
-
-                if not google_client_id or not google_client_secret:
-                    st.info("💡 Configure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Streamlit secrets to enable Google Docs export")
-                    st.markdown("See [GOOGLE_DOCS_SETUP.md](https://github.com/projyct/cma-generator/blob/main/GOOGLE_DOCS_SETUP.md) for setup instructions")
-                else:
-                    # Initialize OAuth2Component (positional arguments required)
-                    # Note: revoke_token_endpoint set to None to avoid MissingRevokeTokenAuthMethodError
-                    oauth2 = OAuth2Component(
-                        google_client_id,
-                        google_client_secret,
-                        "https://accounts.google.com/o/oauth2/v2/auth",
-                        "https://oauth2.googleapis.com/token",
-                        "https://oauth2.googleapis.com/token",  # refresh token endpoint (same as token)
-                        None,  # revoke endpoint not needed for this use case
-                    )
-
-                    # Check if user is authenticated
-                    if 'google_token' not in st.session_state:
-                        # Show OAuth button
-                        result = oauth2.authorize_button(
-                            name="Connect Google Drive",
-                            redirect_uri=google_redirect_uri,
-                            scope="openid email profile https://www.googleapis.com/auth/drive.file",
-                            key="google_oauth",
-                            pkce='S256',
-                            extras_params={"access_type": "offline", "prompt": "consent"}
-                        )
-
-                        if result:
-                            st.session_state.google_token = result['token']
-                            st.rerun()
-                    else:
-                        # User is authenticated
-                        token = st.session_state.google_token
-
-                        col1, col2 = st.columns([3, 1])
-
-                        with col1:
-                            st.success("✅ Connected to Google Drive")
-
-                            if st.button("📝 Create Google Doc", type="primary"):
-                                try:
-                                    # Prepare report data
-                                    selected_comps = st.session_state.selected_comps
-                                    rents_temp = [c.get('rent', 0) for c in selected_comps if c.get('rent')]
-
-                                    if rents_temp:
-                                        avg_rent = sum(rents_temp) / len(rents_temp)
-                                        median_rent = sorted(rents_temp)[len(rents_temp) // 2]
-                                        min_rent = min(rents_temp)
-                                        max_rent = max(rents_temp)
-                                        suggested_low = median_rent * 0.95
-                                        suggested_high = median_rent * 1.05
-                                    else:
-                                        avg_rent = median_rent = min_rent = max_rent = suggested_low = suggested_high = 0
-
-                                    cma_data = {
-                                        'cma_name': report_name,
-                                        'subject_address': final_address,
-                                        'subject_beds': subject_beds,
-                                        'subject_baths': subject_baths,
-                                        'subject_sqft': subject_sqft,
-                                        'rent_stats': {
-                                            'avg_rent': avg_rent,
-                                            'median_rent': median_rent,
-                                            'min_rent': min_rent,
-                                            'max_rent': max_rent,
-                                            'suggested_low': suggested_low,
-                                            'suggested_high': suggested_high
-                                        },
-                                        'comparables': selected_comps
-                                    }
-
-                                    with st.spinner("Uploading to Google Drive..."):
-                                        # Generate HTML
-                                        exports_dir = Path("exports")
-                                        exports_dir.mkdir(exist_ok=True)
-                                        html_path = exports_dir / f"{report_name}.html"
-
-                                        # Create map if coords available
-                                        if st.session_state.subject_coords:
-                                            map_html = report_gen.create_map_html(
-                                                final_address,
-                                                st.session_state.subject_coords[0],
-                                                st.session_state.subject_coords[1],
-                                                selected_comps
-                                            )
-                                        else:
-                                            map_html = None
-
-                                        report_gen.generate_html(cma_data, str(html_path), map_html)
-
-                                        # Upload to Drive
-                                        access_token = token['access_token']
-                                        drive_exporter = GoogleDriveExporter(access_token)
-                                        result = drive_exporter.upload_html_as_doc(
-                                            str(html_path),
-                                            f"{report_name} - CMA Report"
-                                        )
-
-                                        st.success("✅ Successfully uploaded to Google Drive!")
-                                        st.markdown(f"**[📝 Open in Google Docs ↗]({result['web_view_link']})**")
-
-                                except Exception as e:
-                                    st.error(f"❌ Upload failed: {e}")
-
-                        with col2:
-                            if st.button("🚪 Logout"):
-                                del st.session_state.google_token
-                                st.rerun()
-
             # Calculate statistics
             rents = [comp.get('rent', 0) for comp in st.session_state.selected_comps if comp.get('rent')]
 
@@ -1570,6 +1448,92 @@ if page == "🔍 Generate CMA":
                         except Exception as e:
                             st.error(f"Error generating HTML: {e}")
 
+                # Google Docs Export
+                st.markdown("---")
+                st.markdown("#### 📝 Export to Google Docs")
+
+                # Check if OAuth library and credentials are configured
+                if not GOOGLE_OAUTH_AVAILABLE:
+                    st.warning("⚠️ Install `streamlit-oauth` to enable Google Docs export")
+                else:
+                    google_client_id = os.getenv("GOOGLE_CLIENT_ID") or st.secrets.get("GOOGLE_CLIENT_ID", "")
+                    google_client_secret = os.getenv("GOOGLE_CLIENT_SECRET") or st.secrets.get("GOOGLE_CLIENT_SECRET", "")
+                    google_redirect_uri = os.getenv("GOOGLE_REDIRECT_URI") or st.secrets.get("GOOGLE_REDIRECT_URI", "http://localhost:8501")
+
+                    if not google_client_id or not google_client_secret:
+                        st.info("💡 Configure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Streamlit secrets to enable Google Docs export")
+                    else:
+                        # Initialize OAuth2Component
+                        oauth2 = OAuth2Component(
+                            google_client_id,
+                            google_client_secret,
+                            "https://accounts.google.com/o/oauth2/v2/auth",
+                            "https://oauth2.googleapis.com/token",
+                            "https://oauth2.googleapis.com/token",
+                            None,
+                        )
+
+                        # Check if user is authenticated
+                        if 'google_token' not in st.session_state:
+                            # Show OAuth button
+                            result = oauth2.authorize_button(
+                                name="Connect Google Drive",
+                                redirect_uri=google_redirect_uri,
+                                scope="openid email profile https://www.googleapis.com/auth/drive.file",
+                                key="google_oauth",
+                                pkce='S256',
+                                extras_params={"access_type": "offline", "prompt": "consent"}
+                            )
+
+                            if result:
+                                st.session_state.google_token = result['token']
+                                st.rerun()
+                        else:
+                            # User is authenticated
+                            token = st.session_state.google_token
+
+                            col_left, col_right = st.columns([3, 1])
+
+                            with col_left:
+                                st.success("✅ Connected to Google Drive")
+
+                                if st.button("📝 Create Google Doc", type="primary"):
+                                    try:
+                                        with st.spinner("Uploading to Google Drive..."):
+                                            # Generate HTML
+                                            html_path = export_dir / f"{report_name}.html"
+
+                                            # Create map if coords available
+                                            if st.session_state.subject_coords:
+                                                subject_for_map = {
+                                                    'address': final_address,
+                                                    'latitude': st.session_state.subject_coords[0],
+                                                    'longitude': st.session_state.subject_coords[1]
+                                                }
+                                                map_html = report_gen.create_map(subject_for_map, st.session_state.selected_comps)
+                                            else:
+                                                map_html = None
+
+                                            report_gen.generate_html(cma_data, str(html_path), map_html)
+
+                                            # Upload to Drive
+                                            access_token = token['access_token']
+                                            drive_exporter = GoogleDriveExporter(access_token)
+                                            result_upload = drive_exporter.upload_html_as_doc(
+                                                str(html_path),
+                                                f"{report_name} - CMA Report"
+                                            )
+
+                                            st.success("✅ Successfully uploaded to Google Drive!")
+                                            st.markdown(f"**[📝 Open in Google Docs ↗]({result_upload['web_view_link']})**")
+
+                                    except Exception as e:
+                                        st.error(f"❌ Upload failed: {e}")
+
+                            with col_right:
+                                if st.button("🚪 Logout"):
+                                    del st.session_state.google_token
+                                    st.rerun()
 
 
 # ============================================================================
