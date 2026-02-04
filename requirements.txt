@@ -13,4 +13,4 @@ psycopg2-binary>=2.9.9
 google-auth>=2.23.0
 google-auth-oauthlib>=1.1.0
 google-api-python-client>=2.108.0
-streamlit-google-auth>=0.1.0
+streamlit-oauth>=0.1.0

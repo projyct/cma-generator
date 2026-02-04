@@ -14,15 +14,16 @@ import streamlit as st
 class GoogleDriveExporter:
     """Upload HTML reports to user's Google Drive as editable Google Docs"""
 
-    def __init__(self, credentials: Credentials):
+    def __init__(self, access_token: str):
         """
-        Initialize with user's OAuth credentials
+        Initialize with user's OAuth access token
 
         Args:
-            credentials: User's Google OAuth2 credentials from streamlit-google-auth
+            access_token: User's Google OAuth2 access token from streamlit-oauth
         """
-        self.credentials = credentials
-        self.service = build('drive', 'v3', credentials=credentials)
+        # Create credentials from access token
+        self.credentials = Credentials(token=access_token)
+        self.service = build('drive', 'v3', credentials=self.credentials)
 
     def upload_html_as_doc(self, html_path: str, doc_title: str) -> Dict[str, str]:
         """
