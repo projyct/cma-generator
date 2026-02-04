@@ -803,16 +803,7 @@ class Database:
         saved_count = 0
         for comp in comps:
             try:
-                cursor.execute("""
-                    INSERT OR REPLACE INTO external_comps (
-                        address, city, state, zip_code,
-                        latitude, longitude,
-                        bedrooms, bathrooms, sqft,
-                        rent_price, property_type, year_built,
-                        source, source_id, correlation_score,
-                        listing_status, days_on_market
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
+                values = (
                     comp.get('address'),
                     comp.get('city'),
                     comp.get('state'),
@@ -830,10 +821,40 @@ class Database:
                     comp.get('correlation_score') or comp.get('correlation'),
                     comp.get('listing_status') or comp.get('listingStatus'),
                     comp.get('days_on_market') or comp.get('daysOnMarket')
-                ))
+                )
+
+                if self.engine == 'postgresql':
+                    # PostgreSQL: Use ON CONFLICT with %s placeholders
+                    cursor.execute("""
+                        INSERT INTO external_comps (
+                            address, city, state, zip_code,
+                            latitude, longitude,
+                            bedrooms, bathrooms, sqft,
+                            rent_price, property_type, year_built,
+                            source, source_id, correlation_score,
+                            listing_status, days_on_market
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (source, source_id)
+                        DO UPDATE SET retrieved_date = CURRENT_TIMESTAMP
+                    """, values)
+                else:
+                    # SQLite: Use INSERT OR REPLACE with ? placeholders
+                    cursor.execute("""
+                        INSERT OR REPLACE INTO external_comps (
+                            address, city, state, zip_code,
+                            latitude, longitude,
+                            bedrooms, bathrooms, sqft,
+                            rent_price, property_type, year_built,
+                            source, source_id, correlation_score,
+                            listing_status, days_on_market
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, values)
+
                 saved_count += 1
             except Exception as e:
-                print(f"Error saving comp {comp.get('address')}: {e}")
+                # Make errors visible in Streamlit UI
+                import streamlit as st
+                st.warning(f"⚠️ Failed to save comp {comp.get('address')}: {str(e)}")
                 continue
 
         conn.commit()
