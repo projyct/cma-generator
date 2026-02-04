@@ -1,24 +1,64 @@
 """
 Database module for CMA Generator
-Handles SQLite database operations for properties, rent history, and saved CMAs
+Handles SQLite and PostgreSQL database operations for properties, rent history, and saved CMAs
 """
 
 import sqlite3
+import os
+import re
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple
 import json
 
+# Try to import PostgreSQL driver
+try:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+    POSTGRES_AVAILABLE = True
+except ImportError:
+    POSTGRES_AVAILABLE = False
+
 
 class Database:
     def __init__(self, db_path: str = "data/cma_generator.db"):
-        self.db_path = db_path
+        """Initialize database - uses PostgreSQL if DATABASE_URL set, otherwise SQLite"""
+        self.db_url = os.getenv('DATABASE_URL')
+        
+        if self.db_url and POSTGRES_AVAILABLE:
+            self.engine = 'postgresql'
+        else:
+            self.engine = 'sqlite'
+            self.db_path = db_path
+        
         self.create_tables()
 
     def get_connection(self):
         """Create and return a database connection"""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row  # Enable column access by name
-        return conn
+        if self.engine == 'postgresql':
+            conn = psycopg2.connect(self.db_url, cursor_factory=RealDictCursor)
+            return conn
+        else:
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row  # Enable column access by name
+            return conn
+    
+    def _sql(self, sql: str) -> str:
+        """Convert SQL to engine-specific syntax"""
+        if self.engine == 'postgresql':
+            # Convert AUTOINCREMENT to SERIAL
+            sql = sql.replace('INTEGER PRIMARY KEY AUTOINCREMENT', 'SERIAL PRIMARY KEY')
+            # Convert julianday to PostgreSQL date arithmetic
+            sql = re.sub(
+                r"julianday\('now'\)\s*-\s*julianday\((\w+)\)",
+                r"EXTRACT(EPOCH FROM (NOW() - ))/86400",
+                sql
+            )
+            sql = re.sub(
+                r"\(julianday\('now'\)\s*-\s*julianday\((\w+)\)\)",
+                r"EXTRACT(EPOCH FROM (NOW() - ))/86400",
+                sql
+            )
+        return sql
 
     def create_tables(self):
         """Create all necessary database tables"""
@@ -26,7 +66,7 @@ class Database:
         cursor = conn.cursor()
 
         # Properties table - stores unique properties with geocoded data
-        cursor.execute("""
+        cursor.execute(self._sql("""
             CREATE TABLE IF NOT EXISTS properties (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 address TEXT UNIQUE NOT NULL,
@@ -52,10 +92,10 @@ class Database:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """))
 
         # Rent history table - tracks rent changes over time
-        cursor.execute("""
+        cursor.execute(self._sql("""
             CREATE TABLE IF NOT EXISTS rent_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 property_id INTEGER NOT NULL,
@@ -66,7 +106,7 @@ class Database:
                 upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (property_id) REFERENCES properties(id)
             )
-        """)
+        """))
 
         # Create indexes for faster queries
         cursor.execute("""
@@ -95,7 +135,7 @@ class Database:
         """)
 
         # External comparables table - stores RentCast and other external data
-        cursor.execute("""
+        cursor.execute(self._sql("""
             CREATE TABLE IF NOT EXISTS external_comps (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 address TEXT NOT NULL,
@@ -118,7 +158,7 @@ class Database:
                 days_on_market INTEGER,
                 UNIQUE(source, source_id)
             )
-        """)
+        """))
 
         # Create indexes for external_comps
         cursor.execute("""
@@ -137,7 +177,7 @@ class Database:
         """)
 
         # Saved CMAs table
-        cursor.execute("""
+        cursor.execute(self._sql("""
             CREATE TABLE IF NOT EXISTS saved_cmas (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 cma_name TEXT NOT NULL,
@@ -157,10 +197,10 @@ class Database:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 notes TEXT
             )
-        """)
+        """))
 
         # Comparables notes table - user notes on specific comparables
-        cursor.execute("""
+        cursor.execute(self._sql("""
             CREATE TABLE IF NOT EXISTS comp_notes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 cma_id INTEGER NOT NULL,
@@ -172,10 +212,10 @@ class Database:
                 FOREIGN KEY (cma_id) REFERENCES saved_cmas(id),
                 FOREIGN KEY (property_id) REFERENCES properties(id)
             )
-        """)
+        """))
 
         # Zillow comparables cache (temporary storage for API results)
-        cursor.execute("""
+        cursor.execute(self._sql("""
             CREATE TABLE IF NOT EXISTS zillow_comps (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 zpid TEXT UNIQUE,
@@ -197,7 +237,7 @@ class Database:
                 listing_url TEXT,
                 fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """))
 
         conn.commit()
         conn.close()
@@ -448,7 +488,7 @@ class Database:
 
         # Haversine formula to calculate distance in miles
         # Use subquery to avoid HAVING clause on non-aggregate query
-        query = """
+        query = self._sql("""
             SELECT * FROM (
                 SELECT
                     p.*,
@@ -472,7 +512,7 @@ class Database:
                 WHERE p.latitude IS NOT NULL AND p.longitude IS NOT NULL
             ) AS subquery
             WHERE distance_miles <= ?
-        """
+        """)
 
         params = [center_lat, center_lon, center_lat, radius_miles]
 
@@ -819,7 +859,7 @@ class Database:
         conn = self.get_connection()
         cursor = conn.cursor()
 
-        query = """
+        query = self._sql("""
             SELECT * FROM (
                 SELECT
                     *,
@@ -834,7 +874,7 @@ class Database:
             ) AS subquery
             WHERE distance_miles <= ?
             AND age_days <= ?
-        """
+        """)
 
         params = [center_lat, center_lon, center_lat, radius_miles, max_age_days]
 
@@ -877,7 +917,7 @@ class Database:
         conn = self.get_connection()
         cursor = conn.cursor()
 
-        query = """
+        query = self._sql("""
             SELECT
                 COUNT(*) as total_count,
                 MIN(retrieved_date) as oldest_date,
@@ -885,7 +925,7 @@ class Database:
                 AVG(julianday('now') - julianday(retrieved_date)) as avg_age_days,
                 source
             FROM external_comps
-        """
+        """)
 
         if source:
             query += " WHERE source = ?"

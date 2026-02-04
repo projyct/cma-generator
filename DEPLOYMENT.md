@@ -2,7 +2,7 @@
 
 ## 🚀 Currently Deployed
 
-**Live Demo:** https://cma-generator-k2szbvxthefhkrggxvjblh.streamlit.app/
+**Live Demo:** https://cma-generator-hhwdzmqw9u5ukcpgwdu7pc.streamlit.app/
 
 **Deployment Details:**
 - **Platform:** Streamlit Community Cloud (Free Tier)
@@ -29,7 +29,7 @@ The repository has been cleaned and is now ready for deployment to Streamlit Clo
 
 ### Core Application Files:
 - **app.py** - Main Streamlit application (41KB)
-- **database.py** - SQLite database operations (27KB)
+- **database.py** - Dual-engine database (SQLite/PostgreSQL) with auto-detection (27KB)
 - **parsers.py** - AppFolio CSV parsing (19KB)
 - **geocoder.py** - Address geocoding with Census API (16KB)
 - **reports.py** - PDF/Excel/HTML report generation (19KB)
@@ -83,16 +83,24 @@ The following files were removed as they're not needed for deployment:
    - Main file path: `app.py`
    - Click "Deploy"
 
-3. **Configure Secrets (Recommended for RentCast):**
+3. **Configure Secrets (Required for Database & RentCast):**
    - Go to App settings > Secrets
-   - Add environment variables for external data:
+   - Add environment variables:
      ```toml
-     # Optional: For Nominatim geocoding compliance
-     GEOCODING_EMAIL = "your_email@example.com"
+     # Required: Neon PostgreSQL connection for persistent storage
+     DATABASE_URL = "postgresql://user:password@host/database?sslmode=require"
 
      # Recommended: For RentCast market comparables
      RENTCAST_API_KEY = "your_rentcast_api_key_here"
      ```
+
+   - **Setup Neon PostgreSQL (Free Forever):**
+     1. Sign up at https://neon.tech
+     2. Create a new project (PostgreSQL 17, AWS us-east-1)
+     3. Copy connection string from Neon dashboard
+     4. Add as DATABASE_URL in Streamlit secrets
+     5. Free tier: 512 MB storage, never pauses
+
    - **Get your free RentCast API key:**
      1. Sign up at https://app.rentcast.io/
      2. Go to https://app.rentcast.io/app/api
@@ -111,49 +119,43 @@ The following files were removed as they're not needed for deployment:
 ```toml
 # .streamlit/secrets.toml (on Streamlit Cloud)
 
-# Optional: For Nominatim geocoding usage policy compliance
-GEOCODING_EMAIL = "your_email@example.com"
+# Required: Neon PostgreSQL for persistent storage
+DATABASE_URL = "postgresql://user:password@host/database?sslmode=require"
 
 # Recommended: For RentCast external market data
 RENTCAST_API_KEY = "your_api_key_here"
 ```
 
-**Note:** The app works without any API keys:
+**Note:**
+- **DATABASE_URL required:** Provides persistent storage for RentCast cache and property data
 - **Without RentCast key:** Uses only internal rent roll data for comparables
 - **With RentCast key:** Adds nationwide market comparables + caches them for reuse
 
 ## Database Persistence
 
-### Current Approach: Pre-loaded Database ✅
+### Current Approach: Neon PostgreSQL ✅
 
-**The deployed demo includes a pre-populated database in the repository:**
-- 4,738 properties with geocoded coordinates
-- 4,771 rent records (PII removed)
-- Database file: `data/cma_generator.db` (3.4MB)
-- Included in Git repository for immediate demo functionality
+**Production database using Neon (free forever):**
+- **Engine:** PostgreSQL 17 (serverless)
+- **Storage:** 512 MB (free tier)
+- **Region:** AWS us-east-1
+- **Never pauses:** Always available (unlike Supabase)
+- **Connection:** Configured via DATABASE_URL environment variable
 
-**Why this approach:**
-- Streamlit Cloud has ephemeral storage (resets on restart)
-- Geocoding 4,700 addresses takes ~3 minutes (too slow for demo)
-- Pre-populated database allows instant CMA generation
-- No PII stored (safe for public repository)
+**Why Neon PostgreSQL:**
+- ✅ **Persistent storage:** RentCast cache survives app restarts
+- ✅ **Free forever:** No time limits (vs AWS 12 months)
+- ✅ **No pausing:** Instant responses (vs Supabase 1-week pause)
+- ✅ **Dual-engine support:** database.py auto-detects and uses PostgreSQL when DATABASE_URL is set, falls back to SQLite for local development
 
-**For production deployments:**
+**Migration from SQLite:**
+- Database layer supports both SQLite and PostgreSQL
+- Automatic SQL syntax conversion (AUTOINCREMENT → SERIAL, julianday → EXTRACT)
+- Local development uses SQLite (`data/cma_generator.db`)
+- Production (Streamlit Cloud) uses Neon PostgreSQL
 
-**Option 1: External Database (Recommended)**
-- Use PostgreSQL, MySQL, or cloud database
-- Modify `database.py` to connect to external DB
-- Store connection string in secrets
-
-**Option 2: File-based persistence**
-- Mount external storage (if supported by hosting platform)
-- Use cloud storage (S3, Google Drive API) for database file
-
-**Option 3: Accept ephemeral storage**
-- Users re-upload rent roll each session
-- Good for testing/demo purposes
-
-The current demo works with the pre-loaded database. Users can also upload their own rent rolls which will be temporarily added to the database until the next restart.
+**Legacy Approach (Pre-Migration):**
+The app previously included a pre-populated SQLite database in the repository with 4,738 demo properties. This approach was limited because Streamlit Cloud's ephemeral storage reset the RentCast cache on every restart, wasting API calls.
 
 ## Application Features
 
