@@ -15,8 +15,16 @@ from geocoder import Geocoder, CensusGeocoder, calculate_distance_miles
 from reports import CMAReportGenerator
 from rentcast_client import RentCastClient
 from address_cleaner import AddressCleaner
+from google_drive_exporter import GoogleDriveExporter
 import re
 from urllib.parse import quote
+
+# Conditional import for Google Auth
+try:
+    from streamlit_google_auth import Authenticate
+    GOOGLE_AUTH_AVAILABLE = True
+except ImportError:
+    GOOGLE_AUTH_AVAILABLE = False
 
 # Helper Functions
 def generate_zillow_url(address: str, city: str = "", state: str = "", zip_code: str = "") -> str:
@@ -1327,6 +1335,119 @@ if page == "🔍 Generate CMA":
                 value=f"CMA_{final_address.split(',')[0]}_{datetime.now().strftime('%Y%m%d')}"
             )
 
+            # Google Docs Export
+            st.markdown("---")
+            st.markdown("### 📝 Export to Google Docs")
+
+            if GOOGLE_AUTH_AVAILABLE:
+                # Initialize Google Auth
+                if 'google_auth' not in st.session_state:
+                    try:
+                        google_client_id = os.getenv("GOOGLE_CLIENT_ID") or st.secrets.get("GOOGLE_CLIENT_ID", "")
+                        google_client_secret = os.getenv("GOOGLE_CLIENT_SECRET") or st.secrets.get("GOOGLE_CLIENT_SECRET", "")
+                        google_redirect_uri = os.getenv("GOOGLE_REDIRECT_URI") or st.secrets.get("GOOGLE_REDIRECT_URI", "http://localhost:8501")
+
+                        if google_client_id and google_client_secret:
+                            st.session_state.google_auth = Authenticate(
+                                secret_credentials_path=None,
+                                cookie_name='google_auth_cookie',
+                                cookie_key='this_is_secret',
+                                redirect_uri=google_redirect_uri,
+                            )
+                        else:
+                            st.session_state.google_auth = None
+                    except Exception as e:
+                        st.session_state.google_auth = None
+                        st.error(f"⚠️ Google OAuth initialization error: {e}")
+
+                if st.session_state.get('google_auth') is None:
+                    st.info("💡 Configure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to enable Google Docs export")
+                else:
+                    authenticator = st.session_state.google_auth
+
+                    col_left, col_right = st.columns([3, 1])
+
+                    with col_left:
+                        if authenticator.check_authentification():
+                            st.success(f"✅ Connected as {authenticator.get_username()}")
+
+                            if st.button("📝 Create Google Doc", type="primary"):
+                                try:
+                                    # Prepare report data
+                                    selected_comps = st.session_state.selected_comps
+                                    rents_temp = [c.get('rent', 0) for c in selected_comps if c.get('rent')]
+
+                                    if rents_temp:
+                                        avg_rent = sum(rents_temp) / len(rents_temp)
+                                        median_rent = sorted(rents_temp)[len(rents_temp) // 2]
+                                        min_rent = min(rents_temp)
+                                        max_rent = max(rents_temp)
+                                        suggested_low = median_rent * 0.95
+                                        suggested_high = median_rent * 1.05
+                                    else:
+                                        avg_rent = median_rent = min_rent = max_rent = suggested_low = suggested_high = 0
+
+                                    cma_data = {
+                                        'cma_name': report_name,
+                                        'subject_address': final_address,
+                                        'subject_beds': subject_beds,
+                                        'subject_baths': subject_baths,
+                                        'subject_sqft': subject_sqft,
+                                        'rent_stats': {
+                                            'avg_rent': avg_rent,
+                                            'median_rent': median_rent,
+                                            'min_rent': min_rent,
+                                            'max_rent': max_rent,
+                                            'suggested_low': suggested_low,
+                                            'suggested_high': suggested_high
+                                        },
+                                        'comparables': selected_comps
+                                    }
+
+                                    with st.spinner("Uploading to Google Drive..."):
+                                        # Generate HTML
+                                        exports_dir = Path("exports")
+                                        exports_dir.mkdir(exist_ok=True)
+                                        html_path = exports_dir / f"{report_name}.html"
+
+                                        # Create map if coords available
+                                        if st.session_state.subject_coords:
+                                            map_html = report_gen.create_map_html(
+                                                final_address,
+                                                st.session_state.subject_coords[0],
+                                                st.session_state.subject_coords[1],
+                                                selected_comps
+                                            )
+                                        else:
+                                            map_html = None
+
+                                        report_gen.generate_html(cma_data, str(html_path), map_html)
+
+                                        # Upload to Drive
+                                        credentials = authenticator.get_credentials()
+                                        drive_exporter = GoogleDriveExporter(credentials)
+                                        result = drive_exporter.upload_html_as_doc(
+                                            str(html_path),
+                                            f"{report_name} - CMA Report"
+                                        )
+
+                                        st.success("✅ Successfully uploaded to Google Drive!")
+                                        st.markdown(f"**[📝 Open in Google Docs ↗]({result['web_view_link']})**")
+
+                                except Exception as e:
+                                    st.error(f"❌ Upload failed: {e}")
+                        else:
+                            st.info("🔐 Connect your Google account to export")
+                            authenticator.login()
+
+                    with col_right:
+                        if authenticator.check_authentification():
+                            if st.button("🚪 Logout"):
+                                authenticator.logout()
+                                st.rerun()
+            else:
+                st.warning("⚠️ Install `streamlit-google-auth` to enable Google Docs export")
+
             # Calculate statistics
             rents = [comp.get('rent', 0) for comp in st.session_state.selected_comps if comp.get('rent')]
 
@@ -1439,6 +1560,7 @@ if page == "🔍 Generate CMA":
                                 )
                         except Exception as e:
                             st.error(f"Error generating HTML: {e}")
+
 
 
 # ============================================================================

@@ -33,6 +33,8 @@ The repository has been cleaned and is now ready for deployment to Streamlit Clo
 - **geocoder.py** - Address geocoding with Census API (16KB)
 - **reports.py** - PDF/Excel/HTML report generation (19KB)
 - **address_cleaner.py** - Address standardization (17KB)
+- **rentcast_client.py** - RentCast API integration (7KB)
+- **google_drive_exporter.py** - Google Docs export via OAuth (4KB)
 - **zillow_scraper.py** - Zillow integration placeholder (5KB)
 
 ### Configuration Files:
@@ -123,12 +125,18 @@ DATABASE_URL = "postgresql://user:password@host/database?sslmode=require"
 
 # Recommended: For RentCast external market data
 RENTCAST_API_KEY = "your_api_key_here"
+
+# Optional: Google Drive integration for "Edit in Google Docs" export
+GOOGLE_CLIENT_ID = "your_google_client_id.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET = "your_google_client_secret"
+GOOGLE_REDIRECT_URI = "https://your-app-name.streamlit.app"
 ```
 
 **Note:**
 - **DATABASE_URL required:** Provides persistent storage for RentCast cache and property data
 - **Without RentCast key:** Uses only internal rent roll data for comparables
 - **With RentCast key:** Adds nationwide market comparables + caches them for reuse
+- **Google OAuth optional:** Enables users to export CMA reports to their own Google Drive as editable Google Docs. See [GOOGLE_DOCS_SETUP.md](GOOGLE_DOCS_SETUP.md) for setup instructions.
 
 ## Database Persistence
 
@@ -166,6 +174,8 @@ The app previously included a pre-populated SQLite database in the repository wi
 ✅ **RentCast API integration** - Nationwide market comparables
 ✅ **Smart caching** - Save API responses for reuse (ToS compliant)
 ✅ Export to PDF, Excel, and HTML
+✅ **Google Docs export** - Upload reports to user's Google Drive as editable docs (optional)
+✅ **Zillow integration** - Direct links to Rent Zestimate and property listings
 ✅ View and manage properties database
 ✅ Manual address entry for CMA generation
 
