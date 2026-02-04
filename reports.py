@@ -286,13 +286,16 @@ class CMAReportGenerator:
 
     def generate_html(self, cma_data: Dict, output_path: str, map_html: str = None):
         """
-        Generate HTML CMA report with interactive map
+        Generate HTML CMA report with simplified formatting for Google Docs conversion
 
         Args:
             cma_data: Dictionary containing CMA analysis data
             output_path: Path to save HTML file
-            map_html: Optional HTML string for embedded map
+            map_html: Optional HTML string for embedded map (skipped for Google Docs)
         """
+        rent_stats = cma_data.get('rent_stats', {})
+        comps = cma_data.get('comparables', [])
+
         html_content = f"""
 <!DOCTYPE html>
 <html>
@@ -302,186 +305,107 @@ class CMAReportGenerator:
     <style>
         body {{
             font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f5f5f5;
-        }}
-        .container {{
-            max-width: 1200px;
-            margin: 0 auto;
-            background-color: white;
-            padding: 30px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            margin: 40px;
+            line-height: 1.6;
         }}
         h1 {{
             color: #1a4d2e;
-            text-align: center;
-            border-bottom: 3px solid #1a4d2e;
+            border-bottom: 2px solid #1a4d2e;
             padding-bottom: 10px;
         }}
         h2 {{
             color: #2d5f3f;
-            margin-top: 30px;
-        }}
-        .company {{
-            text-align: center;
-            font-size: 18px;
-            color: #666;
+            margin-top: 25px;
             margin-bottom: 10px;
-        }}
-        .report-date {{
-            text-align: center;
-            color: #999;
-            margin-bottom: 30px;
-        }}
-        .subject-property {{
-            background-color: #e8f4ea;
-            padding: 20px;
-            border-radius: 5px;
-            margin-bottom: 30px;
-        }}
-        .stats-grid {{
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 30px;
-        }}
-        .stat-card {{
-            background-color: #f9f9f9;
-            padding: 15px;
-            border-radius: 5px;
-            border-left: 4px solid #1a4d2e;
-        }}
-        .stat-label {{
-            font-size: 12px;
-            color: #666;
-            text-transform: uppercase;
-        }}
-        .stat-value {{
-            font-size: 24px;
-            font-weight: bold;
-            color: #1a4d2e;
-            margin-top: 5px;
         }}
         table {{
             width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
+            margin-top: 15px;
+            margin-bottom: 20px;
         }}
         th {{
             background-color: #2d5f3f;
             color: white;
-            padding: 12px;
+            padding: 10px;
             text-align: left;
+            border: 1px solid #2d5f3f;
         }}
         td {{
-            padding: 10px;
-            border-bottom: 1px solid #ddd;
+            padding: 8px;
+            border: 1px solid #ddd;
         }}
-        tr:hover {{
-            background-color: #f5f5f5;
-        }}
-        .map-container {{
-            margin-top: 30px;
-            height: 500px;
-        }}
-        .disclaimer {{
-            margin-top: 40px;
-            padding: 15px;
-            background-color: #fff3cd;
-            border-left: 4px solid #ffc107;
-            font-size: 12px;
-            font-style: italic;
+        .info-row td:first-child {{
+            font-weight: bold;
+            width: 200px;
         }}
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Comparative Market Analysis</h1>
-        <div class="company">CMA Generator</div>
-        <div class="report-date">Report Date: {datetime.now().strftime('%B %d, %Y')}</div>
+    <h1>Comparative Market Analysis</h1>
+    <p><strong>Report Date:</strong> {datetime.now().strftime('%B %d, %Y')}</p>
 
-        <div class="subject-property">
-            <h2>Subject Property</h2>
-            <p><strong>Address:</strong> {cma_data.get('subject_address', 'N/A')}</p>
-            <p>
-                <strong>Bedrooms:</strong> {cma_data.get('subject_beds', 'N/A')} |
-                <strong>Bathrooms:</strong> {cma_data.get('subject_baths', 'N/A')} |
-                <strong>Square Feet:</strong> {f"{cma_data.get('subject_sqft', 0):,}" if cma_data.get('subject_sqft') else 'N/A'}
-            </p>
-        </div>
+    <h2>Subject Property</h2>
+    <p>
+        <strong>Address:</strong> {cma_data.get('subject_address', 'N/A')}<br>
+        <strong>Bedrooms:</strong> {cma_data.get('subject_beds', 'N/A')} |
+        <strong>Bathrooms:</strong> {cma_data.get('subject_baths', 'N/A')} |
+        <strong>Square Feet:</strong> {f"{cma_data.get('subject_sqft', 0):,}" if cma_data.get('subject_sqft') else 'N/A'}
+    </p>
 
-        <h2>Rent Analysis Summary</h2>
-        <div class="stats-grid">
+    <h2>Rent Analysis Summary</h2>
+    <table>
+        <tr class="info-row">
+            <td>Average Rent</td>
+            <td>${rent_stats.get('avg_rent', 0):,.2f}</td>
+        </tr>
+        <tr class="info-row">
+            <td>Median Rent</td>
+            <td>${rent_stats.get('median_rent', 0):,.2f}</td>
+        </tr>
+        <tr class="info-row">
+            <td>Suggested Rent Range</td>
+            <td>${rent_stats.get('suggested_low', 0):,.2f} - ${rent_stats.get('suggested_high', 0):,.2f}</td>
+        </tr>
+        <tr class="info-row">
+            <td>Number of Comparables</td>
+            <td>{rent_stats.get('comp_count', 0)}</td>
+        </tr>
+    </table>
+
+    <h2>Comparable Properties</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Address</th>
+                <th>Beds/Baths</th>
+                <th>Sqft</th>
+                <th>Rent</th>
+                <th>Source</th>
+                <th>Distance</th>
+            </tr>
+        </thead>
+        <tbody>
 """
 
-        rent_stats = cma_data.get('rent_stats', {})
-        stats = [
-            ('Average Rent', f"${rent_stats.get('avg_rent', 0):,.2f}"),
-            ('Median Rent', f"${rent_stats.get('median_rent', 0):,.2f}"),
-            ('Minimum Rent', f"${rent_stats.get('min_rent', 0):,.2f}"),
-            ('Maximum Rent', f"${rent_stats.get('max_rent', 0):,.2f}"),
-            ('Suggested Low', f"${rent_stats.get('suggested_low', 0):,.2f}"),
-            ('Suggested High', f"${rent_stats.get('suggested_high', 0):,.2f}")
-        ]
-
-        for label, value in stats:
+        # Limit to top 10 comparables for cleaner report
+        for comp in comps[:10]:
             html_content += f"""
-            <div class="stat-card">
-                <div class="stat-label">{label}</div>
-                <div class="stat-value">{value}</div>
-            </div>
+            <tr>
+                <td>{comp.get('address', 'N/A')}</td>
+                <td>{comp.get('bedrooms', 'N/A')}/{comp.get('bathrooms', 'N/A')}</td>
+                <td>{f"{comp.get('sqft', 0):,}" if comp.get('sqft') else 'N/A'}</td>
+                <td>${comp.get('rent', 0):,.2f}</td>
+                <td>{comp.get('source', 'Internal')}</td>
+                <td>{comp.get('distance_miles', 0):.2f} mi</td>
+            </tr>
 """
 
         html_content += """
-        </div>
+        </tbody>
+    </table>
 
-        <h2>Comparable Properties</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Address</th>
-                    <th>Beds/Baths</th>
-                    <th>Sqft</th>
-                    <th>Rent</th>
-                    <th>Source</th>
-                    <th>Distance</th>
-                </tr>
-            </thead>
-            <tbody>
-"""
-
-        comps = cma_data.get('comparables', [])
-        for comp in comps:
-            html_content += f"""
-                <tr>
-                    <td>{comp.get('address', 'N/A')}</td>
-                    <td>{comp.get('bedrooms', 'N/A')}/{comp.get('bathrooms', 'N/A')}</td>
-                    <td>{f"{comp.get('sqft', 0):,}" if comp.get('sqft') else 'N/A'}</td>
-                    <td>${comp.get('rent', 0):,.2f}</td>
-                    <td>{comp.get('source', 'Internal')}</td>
-                    <td>{comp.get('distance_miles', 0):.2f} mi</td>
-                </tr>
-"""
-
-        html_content += """
-            </tbody>
-        </table>
-"""
-
-        if map_html:
-            html_content += f"""
-        <div class="map-container">
-            {map_html}
-        </div>
-"""
-
-        html_content += """
-        <div class="disclaimer">
-            This Comparative Market Analysis is provided for informational purposes only and should not be
-            considered a formal appraisal. Actual rental rates may vary based on market conditions, property
-            condition, and other factors.
-        </div>
-    </div>
+    <p><em>This Comparative Market Analysis is provided for informational purposes only and should not be considered a formal appraisal. Actual rental rates may vary based on market conditions, property condition, and other factors.</em></p>
 </body>
 </html>
 """
