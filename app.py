@@ -974,6 +974,13 @@ if page == "🔍 Generate CMA":
 
             st.session_state.comparables = all_comparables
 
+            # Debug info (temporary)
+            with st.expander("🔍 Debug Info", expanded=False):
+                st.write(f"External comps in session state: {len(st.session_state.get('external_comps', []))}")
+                st.write(f"External comps variable: {len(external_comps)}")
+                st.write(f"Internal comparables: {len(comparables)}")
+                st.write(f"Total after merge: {len(all_comparables)}")
+
             # Summary
             internal_count = len(comparables)
             external_count = len(external_comps)
