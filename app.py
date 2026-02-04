@@ -75,6 +75,39 @@ def generate_zillow_url(address: str, city: str = "", state: str = "", zip_code:
 
     return zillow_url
 
+def calculate_age_display(date_str: str) -> str:
+    """
+    Convert retrieved_date timestamp to human-readable age.
+
+    Args:
+        date_str: ISO format datetime string
+
+    Returns:
+        Human-readable age string (e.g., "2 days", "3 weeks")
+    """
+    if not date_str:
+        return "N/A"
+
+    try:
+        # Parse the datetime string
+        retrieved = datetime.fromisoformat(str(date_str).replace('Z', '+00:00'))
+        age_days = (datetime.now() - retrieved.replace(tzinfo=None)).days
+
+        if age_days == 0:
+            return "Today"
+        elif age_days == 1:
+            return "1 day"
+        elif age_days < 7:
+            return f"{age_days} days"
+        elif age_days < 30:
+            weeks = age_days // 7
+            return f"{weeks} week" if weeks == 1 else f"{weeks} weeks"
+        else:
+            months = age_days // 30
+            return f"{months} month" if months == 1 else f"{months} months"
+    except Exception:
+        return "N/A"
+
 # Page configuration
 st.set_page_config(
     page_title="CMA Generator",
@@ -611,24 +644,56 @@ if page == "⚙️ Data Management":
     with tab3:
         st.markdown("### Step 3: View Properties")
 
+        # ============================================================
+        # DATABASE STATISTICS - MOVED TO TOP FOR IMMEDIATE VISIBILITY
+        # ============================================================
+
+        # Section 1: Rent Roll Properties Database
+        st.markdown("#### 🏠 Rent Roll Properties Database")
+
+        geocode_stats = st.session_state.db.get_geocoding_stats()
+        geocoded_count = geocode_stats.get('geocoded', 0) + geocode_stats.get('completed', 0)
+        geocode_pct = (geocoded_count / geocode_stats.get('total', 1)) * 100 if geocode_stats.get('total', 0) > 0 else 0
+
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("📊 Properties", geocode_stats.get('total', 0))
+        col2.metric("🗺️ Geocoded", f"{geocode_pct:.0f}%")
+        col3.metric("✅ Ready", geocoded_count)
+        col4.metric("❌ Failed", geocode_stats.get('failed', 0))
+
+        st.markdown("")  # Spacing
+
+        # Section 2: RentCast External Database
+        st.markdown("#### 🌐 RentCast External Database")
+
+        rentcast_stats = st.session_state.db.get_external_comps_stats('RentCast')
+
+        if rentcast_stats and rentcast_stats.get('total_count', 0) > 0:
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("📊 Cached Comps", rentcast_stats.get('total_count', 0))
+
+            # Calculate age displays
+            newest_age = calculate_age_display(rentcast_stats.get('newest_date'))
+            oldest_age = calculate_age_display(rentcast_stats.get('oldest_date'))
+            avg_age = rentcast_stats.get('avg_age_days', 0)
+
+            col2.metric("📅 Newest", newest_age)
+            col3.metric("📅 Oldest", oldest_age)
+            col4.metric("⏰ Avg Age", f"{avg_age:.1f} days")
+        else:
+            st.info("💡 No RentCast comparables cached yet. Generate a CMA to fetch data!")
+
+        st.markdown("---")
+
+        # ============================================================
+        # PROPERTY DATA TABLE (existing code continues below)
+        # ============================================================
+
         all_props = st.session_state.db.get_all_properties()
 
         if not all_props:
             st.warning("⚠️ No properties in database. Please upload a rent roll in Tab 1 first.")
         else:
-            # Statistics
-            geocode_stats = st.session_state.db.get_geocoding_stats()
-
-            # Handle both 'geocoded' and 'completed' status values
-            geocoded_count = geocode_stats.get('geocoded', 0) + geocode_stats.get('completed', 0)
-
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Total Properties", geocode_stats.get('total', 0))
-            col2.metric("✅ Geocoded", geocoded_count)
-            col3.metric("⏳ Pending", geocode_stats.get('pending', 0))
-            col4.metric("❌ Failed", geocode_stats.get('failed', 0))
-
-            st.markdown("---")
 
             # Create display dataframe
             display_data = []
