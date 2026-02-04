@@ -50,14 +50,16 @@ class Database:
             # Convert julianday to PostgreSQL date arithmetic
             sql = re.sub(
                 r"julianday\('now'\)\s*-\s*julianday\((\w+)\)",
-                r"EXTRACT(EPOCH FROM (NOW() - ))/86400",
+                r"EXTRACT(EPOCH FROM (NOW() - \1))/86400",
                 sql
             )
             sql = re.sub(
                 r"\(julianday\('now'\)\s*-\s*julianday\((\w+)\)\)",
-                r"EXTRACT(EPOCH FROM (NOW() - ))/86400",
+                r"EXTRACT(EPOCH FROM (NOW() - \1))/86400",
                 sql
             )
+            # Convert SQLite ? placeholders to PostgreSQL %s placeholders
+            sql = sql.replace('?', '%s')
         return sql
 
     def create_tables(self):
