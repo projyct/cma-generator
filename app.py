@@ -15,6 +15,65 @@ from geocoder import Geocoder, CensusGeocoder, calculate_distance_miles
 from reports import CMAReportGenerator
 from rentcast_client import RentCastClient
 from address_cleaner import AddressCleaner
+import re
+from urllib.parse import quote
+
+# Helper Functions
+def generate_zillow_url(address: str, city: str = "", state: str = "", zip_code: str = "") -> str:
+    """
+    Generate Zillow search URL from address components.
+    Format: https://www.zillow.com/homes/{address-city-state-zip}_rb/
+
+    Args:
+        address: Street address (e.g., "123 Main St")
+        city: City name (optional if included in address)
+        state: State abbreviation (optional if included in address)
+        zip_code: ZIP code (optional if included in address)
+
+    Returns:
+        Formatted Zillow search URL
+    """
+    # If full address provided as single string, try to parse it
+    if not city and not state and not zip_code:
+        # Try to extract components from full address
+        # Format: "123 Main St, Durham, NC 27701"
+        parts = [p.strip() for p in address.split(',')]
+        if len(parts) >= 3:
+            address = parts[0]
+            city = parts[1] if len(parts) > 1 else ""
+            # Parse "NC 27701" or just "NC"
+            state_zip = parts[2].split() if len(parts) > 2 else []
+            state = state_zip[0] if len(state_zip) > 0 else ""
+            zip_code = state_zip[1] if len(state_zip) > 1 else ""
+        elif len(parts) == 2:
+            address = parts[0]
+            # Assume second part is "City State" or "City"
+            city_state = parts[1].split()
+            city = ' '.join(city_state[:-1]) if len(city_state) > 1 else city_state[0]
+            state = city_state[-1] if len(city_state) > 1 else ""
+
+    # Build formatted address string
+    formatted_parts = [address]
+    if city:
+        formatted_parts.append(city)
+    if state:
+        formatted_parts.append(state)
+    if zip_code:
+        formatted_parts.append(str(zip_code))
+
+    # Join with hyphens and clean up
+    formatted_address = '-'.join(formatted_parts)
+
+    # Remove special characters and clean up
+    formatted_address = re.sub(r'[^\w\s-]', '', formatted_address)  # Remove punctuation except hyphens
+    formatted_address = re.sub(r'\s+', '-', formatted_address)  # Replace spaces with hyphens
+    formatted_address = re.sub(r'-+', '-', formatted_address)  # Collapse multiple hyphens
+    formatted_address = formatted_address.strip('-')  # Remove leading/trailing hyphens
+
+    # Build Zillow URL
+    zillow_url = f"https://www.zillow.com/homes/{formatted_address}_rb/"
+
+    return zillow_url
 
 # Page configuration
 st.set_page_config(
@@ -722,6 +781,11 @@ if page == "🔍 Generate CMA":
         # Use manual if provided, otherwise use selected
         final_address = manual_address if manual_address else subject_address
 
+        # Add Zillow Rent Zestimate link if address is entered
+        if final_address:
+            zillow_url = generate_zillow_url(final_address)
+            st.markdown(f"[📊 View Rent Zestimate on Zillow ↗]({zillow_url})", unsafe_allow_html=True)
+
     with col2:
         st.markdown("#### Property Details")
 
@@ -1061,6 +1125,13 @@ if page == "🔍 Generate CMA":
             else:
                 source_badge = '🏠 Internal'
 
+            # Generate Zillow URL for this comparable
+            comp_address = comp.get('address', '')
+            comp_city = comp.get('city', '')
+            comp_state = comp.get('state', '')
+            comp_zip = comp.get('zip_code', '')
+            zillow_url = generate_zillow_url(comp_address, comp_city, comp_state, comp_zip)
+
             comp_data.append({
                 'Select': False,
                 'Address': comp.get('address', 'N/A'),
@@ -1068,6 +1139,7 @@ if page == "🔍 Generate CMA":
                 'Baths': comp.get('bathrooms', 'N/A'),
                 'Sqft': comp.get('sqft', 'N/A'),
                 'Rent': f"${comp.get('rent', 0):,.2f}" if comp.get('rent') else 'N/A',
+                'Zillow': zillow_url,
                 'Source': source_badge,
                 'Status': comp.get('status', 'N/A'),
                 'Distance': f"{comp.get('distance_miles', 0):.2f} mi",
@@ -1080,7 +1152,7 @@ if page == "🔍 Generate CMA":
         st.markdown("**Select comparables to include in your CMA report:**")
 
         edited_df = st.data_editor(
-            comp_df[['Select', 'Address', 'Beds', 'Baths', 'Sqft', 'Rent', 'Source', 'Status', 'Distance']],
+            comp_df[['Select', 'Address', 'Beds', 'Baths', 'Sqft', 'Rent', 'Zillow', 'Source', 'Status', 'Distance']],
             hide_index=True,
             use_container_width=True,
             column_config={
@@ -1108,6 +1180,12 @@ if page == "🔍 Generate CMA":
                 ),
                 "Rent": st.column_config.TextColumn(
                     "Rent",
+                    width="small"
+                ),
+                "Zillow": st.column_config.LinkColumn(
+                    "Zillow",
+                    help="View property on Zillow",
+                    display_text="🔍 View",
                     width="small"
                 ),
                 "Source": st.column_config.TextColumn(
