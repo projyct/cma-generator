@@ -919,8 +919,10 @@ if page == "🔍 Generate CMA":
                 st.info("No cached RentCast data found for this area")
 
                 if st.button("🔄 Fetch RentCast Comparables (1 API call)", type="primary"):
+                    st.write("🔍 DEBUG: Button was clicked!")  # Debug
                     with st.spinner("Fetching data from RentCast API..."):
                         try:
+                            st.write("🔍 DEBUG: Making API call...")  # Debug
                             response = st.session_state.rentcast.get_rent_estimate(
                                 latitude=subject_lat,
                                 longitude=subject_lon,
@@ -946,6 +948,8 @@ if page == "🔍 Generate CMA":
 
                             st.success(f"✅ Retrieved and saved {saved_count} RentCast comps!")
                             st.info(f"💡 These comps are now cached for future use (free).")
+                            # Force rerun to display the data in the table
+                            st.rerun()
 
                         except Exception as e:
                             st.error(f"❌ RentCast API Error: {str(e)}")
