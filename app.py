@@ -1352,13 +1352,14 @@ if page == "🔍 Generate CMA":
                     st.markdown("See [GOOGLE_DOCS_SETUP.md](https://github.com/projyct/cma-generator/blob/main/GOOGLE_DOCS_SETUP.md) for setup instructions")
                 else:
                     # Initialize OAuth2Component (positional arguments required)
+                    # Note: revoke_token_endpoint set to None to avoid MissingRevokeTokenAuthMethodError
                     oauth2 = OAuth2Component(
                         google_client_id,
                         google_client_secret,
                         "https://accounts.google.com/o/oauth2/v2/auth",
                         "https://oauth2.googleapis.com/token",
                         "https://oauth2.googleapis.com/token",  # refresh token endpoint (same as token)
-                        "https://oauth2.googleapis.com/revoke",
+                        None,  # revoke endpoint not needed for this use case
                     )
 
                     # Check if user is authenticated
