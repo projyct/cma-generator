@@ -835,6 +835,9 @@ if page == "🔍 Generate CMA":
             # Exclude subject property itself
             comparables = [c for c in comparables if c['address'] != final_address]
 
+            # Read external comps from session state
+            external_comps = st.session_state.get('external_comps', [])
+
             # Check for cached external comparables from RentCast
             cached_external = st.session_state.db.find_external_comps(
                 subject_lat,
@@ -846,7 +849,6 @@ if page == "🔍 Generate CMA":
             )
 
             # RentCast integration UI
-            external_comps = []
             if cached_external:
                 # Calculate age of cached data
                 import sqlite3
@@ -905,7 +907,6 @@ if page == "🔍 Generate CMA":
 
                             st.success(f"✅ Retrieved and saved {saved_count} fresh RentCast comps!")
                             st.info(f"💡 **Tip:** These comps are now cached. Future CMAs in this area won't use API calls.")
-                            st.rerun()
 
                         except Exception as e:
                             st.error(f"❌ RentCast API Error: {str(e)}")
@@ -945,7 +946,6 @@ if page == "🔍 Generate CMA":
 
                             st.success(f"✅ Retrieved and saved {saved_count} RentCast comps!")
                             st.info(f"💡 These comps are now cached for future use (free).")
-                            st.rerun()
 
                         except Exception as e:
                             st.error(f"❌ RentCast API Error: {str(e)}")
