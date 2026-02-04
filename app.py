@@ -1351,13 +1351,14 @@ if page == "🔍 Generate CMA":
                     st.info("💡 Configure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Streamlit secrets to enable Google Docs export")
                     st.markdown("See [GOOGLE_DOCS_SETUP.md](https://github.com/projyct/cma-generator/blob/main/GOOGLE_DOCS_SETUP.md) for setup instructions")
                 else:
-                    # Initialize OAuth2Component
+                    # Initialize OAuth2Component (positional arguments required)
                     oauth2 = OAuth2Component(
-                        client_id=google_client_id,
-                        client_secret=google_client_secret,
-                        authorize_endpoint="https://accounts.google.com/o/oauth2/auth",
-                        token_endpoint="https://oauth2.googleapis.com/token",
-                        revoke_endpoint="https://oauth2.googleapis.com/revoke",
+                        google_client_id,
+                        google_client_secret,
+                        "https://accounts.google.com/o/oauth2/v2/auth",
+                        "https://oauth2.googleapis.com/token",
+                        "https://oauth2.googleapis.com/token",  # refresh token endpoint (same as token)
+                        "https://oauth2.googleapis.com/revoke",
                     )
 
                     # Check if user is authenticated
