@@ -28,6 +28,9 @@ data/*.backup
 data/*.db.backup*
 exports/
 
+# Exclude rent roll CSV files (contains PII)
+rent_roll*.csv
+
 # INCLUDE clean demo database (PII removed - safe for public)
 !data/cma_generator.db
 

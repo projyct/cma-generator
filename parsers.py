@@ -5,6 +5,7 @@ Extracts property data and rent information from AppFolio CSV format
 
 import pandas as pd
 import re
+from datetime import datetime
 from typing import Dict, List, Tuple, Optional
 
 
@@ -288,6 +289,32 @@ class RentRollParser:
         return int(cleaned) if cleaned else None
 
     @staticmethod
+    def parse_date(date_str: str) -> Optional[str]:
+        """
+        Parse date string from AppFolio format to ISO format (YYYY-MM-DD)
+
+        Args:
+            date_str: Date string in MM/DD/YYYY format (e.g., "08/01/2024")
+
+        Returns:
+            ISO format date string (YYYY-MM-DD) or None if invalid
+        """
+        if not date_str or pd.isna(date_str) or date_str == '':
+            return None
+
+        try:
+            # Clean the string
+            date_str = str(date_str).strip()
+
+            # Parse MM/DD/YYYY format
+            dt = datetime.strptime(date_str, '%m/%d/%Y')
+
+            # Return as ISO format string (YYYY-MM-DD)
+            return dt.strftime('%Y-%m-%d')
+        except (ValueError, AttributeError):
+            return None
+
+    @staticmethod
     def parse_csv(file_path: str) -> List[Dict]:
         """
         Parse AppFolio rent roll CSV file
@@ -356,9 +383,14 @@ class RentRollParser:
                 # Derive occupancy type (simple: Occupied or Vacant)
                 occupancy_type = 'Vacant' if 'vacant' in status.lower() else 'Occupied'
 
+                # Parse lease dates (AppFolio format: MM/DD/YYYY)
+                lease_start_date = RentRollParser.parse_date(row.get('Lease From', ''))
+                lease_end_date = RentRollParser.parse_date(row.get('Lease To', ''))
+                move_in_date = RentRollParser.parse_date(row.get('Move-in', ''))
+                move_out_date = RentRollParser.parse_date(row.get('Move-out', ''))
+
                 # Skip PII fields:
                 # - No tenant names
-                # - No lease dates
                 # - No deposit amounts
                 # - No payment history (past_due, nsf_count, late_count)
 
@@ -429,7 +461,11 @@ class RentRollParser:
                     'market_rent': market_rent,
                     'actual_rent': actual_rent,
                     'status': status,
-                    'occupancy_type': occupancy_type
+                    'occupancy_type': occupancy_type,
+                    'lease_start_date': lease_start_date,
+                    'lease_end_date': lease_end_date,
+                    'move_in_date': move_in_date,
+                    'move_out_date': move_out_date
                 }
 
                 properties.append(property_data)

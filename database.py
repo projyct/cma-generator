@@ -109,6 +109,10 @@ class Database:
                 actual_rent REAL,
                 status TEXT,
                 occupancy_type TEXT,
+                lease_start_date DATE,
+                lease_end_date DATE,
+                move_in_date DATE,
+                move_out_date DATE,
                 upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (property_id) REFERENCES properties(id)
             )
@@ -247,6 +251,51 @@ class Database:
 
         conn.commit()
         conn.close()
+
+        # Run migrations for existing databases
+        self._migrate_schema()
+
+    def _migrate_schema(self):
+        """Apply schema migrations for existing databases"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        try:
+            # Check if lease date columns exist in rent_history table
+            if self.engine == 'postgresql':
+                cursor.execute("""
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_name = 'rent_history' AND column_name = 'lease_start_date'
+                """)
+            else:
+                cursor.execute("PRAGMA table_info(rent_history)")
+                columns = [row[1] for row in cursor.fetchall()]
+                cursor.execute("SELECT 1 FROM rent_history WHERE 0=1")  # Reset cursor
+
+            # For SQLite, check if column exists
+            if self.engine == 'sqlite':
+                if 'lease_start_date' not in columns:
+                    # Add lease date columns to existing rent_history table
+                    cursor.execute("ALTER TABLE rent_history ADD COLUMN lease_start_date DATE")
+                    cursor.execute("ALTER TABLE rent_history ADD COLUMN lease_end_date DATE")
+                    cursor.execute("ALTER TABLE rent_history ADD COLUMN move_in_date DATE")
+                    cursor.execute("ALTER TABLE rent_history ADD COLUMN move_out_date DATE")
+                    conn.commit()
+            else:
+                # PostgreSQL
+                result = cursor.fetchone()
+                if not result:
+                    cursor.execute("ALTER TABLE rent_history ADD COLUMN lease_start_date DATE")
+                    cursor.execute("ALTER TABLE rent_history ADD COLUMN lease_end_date DATE")
+                    cursor.execute("ALTER TABLE rent_history ADD COLUMN move_in_date DATE")
+                    cursor.execute("ALTER TABLE rent_history ADD COLUMN move_out_date DATE")
+                    conn.commit()
+        except Exception:
+            # Table might not exist yet, or columns already added - safe to ignore
+            pass
+        finally:
+            conn.close()
 
     def insert_property(self, property_data: Dict) -> int:
         """Insert or update a property record"""
@@ -411,16 +460,21 @@ class Database:
         conn = self.get_connection()
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(self._sql("""
             INSERT INTO rent_history (
-                property_id, market_rent, actual_rent, status, occupancy_type
-            ) VALUES (?, ?, ?, ?, ?)
-        """, (
+                property_id, market_rent, actual_rent, status, occupancy_type,
+                lease_start_date, lease_end_date, move_in_date, move_out_date
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """), (
             property_id,
             rent_data.get('market_rent'),
             rent_data.get('actual_rent'),
             rent_data.get('status'),
-            rent_data.get('occupancy_type')
+            rent_data.get('occupancy_type'),
+            rent_data.get('lease_start_date'),
+            rent_data.get('lease_end_date'),
+            rent_data.get('move_in_date'),
+            rent_data.get('move_out_date')
         ))
 
         conn.commit()
@@ -447,17 +501,22 @@ class Database:
                     record.get('market_rent'),
                     record.get('actual_rent'),
                     record.get('status'),
-                    record.get('occupancy_type')
+                    record.get('occupancy_type'),
+                    record.get('lease_start_date'),
+                    record.get('lease_end_date'),
+                    record.get('move_in_date'),
+                    record.get('move_out_date')
                 )
                 for record in rent_history_records
             ]
 
             # Execute all inserts in one call
-            cursor.executemany("""
+            cursor.executemany(self._sql("""
                 INSERT INTO rent_history (
-                    property_id, market_rent, actual_rent, status, occupancy_type
-                ) VALUES (?, ?, ?, ?, ?)
-            """, values)
+                    property_id, market_rent, actual_rent, status, occupancy_type,
+                    lease_start_date, lease_end_date, move_in_date, move_out_date
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """), values)
 
             # Single commit for all inserts
             conn.commit()
@@ -502,6 +561,10 @@ class Database:
                     rh.actual_rent,
                     rh.status,
                     rh.occupancy_type,
+                    rh.lease_start_date,
+                    rh.lease_end_date,
+                    rh.move_in_date,
+                    rh.move_out_date,
                     rh.upload_date,
                     (3959 * acos(
                         cos(radians(?)) * cos(radians(p.latitude)) *
@@ -511,6 +574,7 @@ class Database:
                 FROM properties p
                 LEFT JOIN (
                     SELECT property_id, market_rent, actual_rent, status, occupancy_type,
+                           lease_start_date, lease_end_date, move_in_date, move_out_date,
                            upload_date,
                            ROW_NUMBER() OVER (PARTITION BY property_id ORDER BY upload_date DESC) as rn
                     FROM rent_history
@@ -612,10 +676,15 @@ class Database:
                 rh.actual_rent,
                 rh.status,
                 rh.occupancy_type,
+                rh.lease_start_date,
+                rh.lease_end_date,
+                rh.move_in_date,
+                rh.move_out_date,
                 rh.upload_date
             FROM properties p
             LEFT JOIN (
-                SELECT property_id, market_rent, actual_rent, status, occupancy_type, upload_date,
+                SELECT property_id, market_rent, actual_rent, status, occupancy_type,
+                       lease_start_date, lease_end_date, move_in_date, move_out_date, upload_date,
                        ROW_NUMBER() OVER (PARTITION BY property_id ORDER BY upload_date DESC) as rn
                 FROM rent_history
             ) rh ON p.id = rh.property_id AND rh.rn = 1
@@ -665,10 +734,15 @@ class Database:
                 p.*,
                 rh.market_rent,
                 rh.actual_rent,
-                rh.status as property_status
+                rh.status as property_status,
+                rh.lease_start_date,
+                rh.lease_end_date,
+                rh.move_in_date,
+                rh.move_out_date
             FROM properties p
             LEFT JOIN (
                 SELECT property_id, market_rent, actual_rent, status,
+                       lease_start_date, lease_end_date, move_in_date, move_out_date,
                        ROW_NUMBER() OVER (PARTITION BY property_id ORDER BY upload_date DESC) as rn
                 FROM rent_history
             ) rh ON p.id = rh.property_id AND rh.rn = 1

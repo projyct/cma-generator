@@ -241,7 +241,7 @@ class CMAReportGenerator:
         # Comparables Sheet
         ws_comps = wb.create_sheet("Comparables")
 
-        headers = ['Address', 'Bedrooms', 'Bathrooms', 'Sqft', 'Rent', 'Source', 'Status', 'Distance (mi)', 'Notes']
+        headers = ['Address', 'Bedrooms', 'Bathrooms', 'Sqft', 'Rent', 'Source', 'Status', 'Lease Start', 'Lease End', 'Distance (mi)', 'Notes']
         ws_comps.append(headers)
 
         # Style header
@@ -264,6 +264,8 @@ class CMAReportGenerator:
                 comp.get('rent', 0),
                 comp.get('source', 'Internal'),
                 comp.get('status', ''),
+                comp.get('lease_start_date', ''),
+                comp.get('lease_end_date', ''),
                 round(comp.get('distance_miles', 0), 2),
                 comp.get('notes', '')
             ])
@@ -381,6 +383,9 @@ class CMAReportGenerator:
                 <th>Beds/Baths</th>
                 <th>Sqft</th>
                 <th>Rent</th>
+                <th>Status</th>
+                <th>Lease Start</th>
+                <th>Lease End</th>
                 <th>Source</th>
                 <th>Distance</th>
             </tr>
@@ -396,6 +401,9 @@ class CMAReportGenerator:
                 <td>{comp.get('bedrooms', 'N/A')}/{comp.get('bathrooms', 'N/A')}</td>
                 <td>{f"{comp.get('sqft', 0):,}" if comp.get('sqft') else 'N/A'}</td>
                 <td>${comp.get('rent', 0):,.2f}</td>
+                <td>{comp.get('status', '')}</td>
+                <td>{comp.get('lease_start_date', '')}</td>
+                <td>{comp.get('lease_end_date', '')}</td>
                 <td>{comp.get('source', 'Internal')}</td>
                 <td>{comp.get('distance_miles', 0):.2f} mi</td>
             </tr>
