@@ -181,7 +181,9 @@ def migrate_rent_history(sqlite_conn, pg_conn) -> int:
     sqlite_cursor.execute("""
         SELECT
             property_id, market_rent, actual_rent,
-            status, occupancy_type, upload_date
+            status, occupancy_type,
+            lease_start_date, lease_end_date, move_in_date, move_out_date,
+            upload_date
         FROM rent_history
         ORDER BY id
     """)
@@ -199,7 +201,9 @@ def migrate_rent_history(sqlite_conn, pg_conn) -> int:
     insert_query = """
         INSERT INTO rent_history (
             property_id, market_rent, actual_rent,
-            status, occupancy_type, upload_date
+            status, occupancy_type,
+            lease_start_date, lease_end_date, move_in_date, move_out_date,
+            upload_date
         ) VALUES %s
     """
 
@@ -216,6 +220,10 @@ def migrate_rent_history(sqlite_conn, pg_conn) -> int:
                 row['actual_rent'],
                 row['status'],
                 row['occupancy_type'],
+                row['lease_start_date'],
+                row['lease_end_date'],
+                row['move_in_date'],
+                row['move_out_date'],
                 row['upload_date']
             ))
         else:
