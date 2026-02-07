@@ -1256,6 +1256,8 @@ if page == "🔍 Generate CMA":
                 'Zillow': zillow_url,
                 'Source': source_badge,
                 'Status': comp.get('status', 'N/A'),
+                'Lease Start': comp.get('lease_start_date', ''),
+                'Lease End': comp.get('lease_end_date', ''),
                 'Distance': f"{comp.get('distance_miles', 0):.2f} mi",
                 'Index': idx
             })
@@ -1266,7 +1268,7 @@ if page == "🔍 Generate CMA":
         st.markdown("**Select comparables to include in your CMA report:**")
 
         edited_df = st.data_editor(
-            comp_df[['Select', 'Address', 'Beds', 'Baths', 'Sqft', 'Rent', 'Zillow', 'Source', 'Status', 'Distance']],
+            comp_df[['Select', 'Address', 'Beds', 'Baths', 'Sqft', 'Rent', 'Zillow', 'Source', 'Status', 'Lease Start', 'Lease End', 'Distance']],
             hide_index=True,
             use_container_width=True,
             column_config={
@@ -1308,6 +1310,16 @@ if page == "🔍 Generate CMA":
                 ),
                 "Status": st.column_config.TextColumn(
                     "Status",
+                    width="small"
+                ),
+                "Lease Start": st.column_config.DateColumn(
+                    "Lease Start",
+                    help="Lease start date",
+                    width="small"
+                ),
+                "Lease End": st.column_config.DateColumn(
+                    "Lease End",
+                    help="Lease expiration date",
                     width="small"
                 ),
                 "Distance": st.column_config.TextColumn(
